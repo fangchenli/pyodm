@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 from dataclasses import dataclass, field
 from importlib.metadata import PackageNotFoundError, metadata, version
