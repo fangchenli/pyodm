@@ -111,10 +111,31 @@ def test_module_errors(module_info_dict, error_msg):
         },
     ],
 )
-def test_dependencies_decorator_non_class(module_info_dict, odm):
+def test_dependencies_decorator_function(module_info_dict, odm):
     @odm(modules=module_info_dict)
     def test_func():
         assert "packaging" in test_func.modules
+        assert test_func.modules["packaging"] is not None
+
+    test_func()
+
+
+@pytest.mark.parametrize(
+    "module_info_dict",
+    [
+        {
+            "dummy": {
+                "specifiers": ">=20.9, <=23.2",
+            }
+        },
+    ],
+)
+def test_dependencies_decorator_function_invalid(module_info_dict, odm):
+    @odm(modules=module_info_dict)
+    def test_func():
+        assert "modules" in test_func.__dict__
+        assert "dummy" in test_func.modules
+        assert test_func.modules["dummy"] is None
 
     test_func()
 
@@ -131,7 +152,7 @@ def test_dependencies_decorator_non_class(module_info_dict, odm):
 )
 def test_dependencies_decorator_class(module_info_dict, odm):
     @odm(modules=module_info_dict)
-    class TestClass(odm.OptionalDependencyChecker):
+    class TestClass():
         ...
 
     assert hasattr(TestClass, "modules")
@@ -150,19 +171,9 @@ def test_dependencies_decorator_class(module_info_dict, odm):
 )
 def test_missing_dependency(module_info_dict, odm):
     @odm(modules=module_info_dict)
-    class TestClass(odm.OptionalDependencyChecker):
+    class TestClass():
         def __init__(self):
             super().__init__()
 
     with pytest.raises(ImportError, match=r"Missing dependencies: \['dummy'\]\n"):
-        TestClass()
-
-
-def test_missing_decorator(odm):
-    class TestClass(odm.OptionalDependencyChecker):
-        def __init__(self):
-            super().__init__()
-
-    error_msg = "The class inheriting from OptionalDependencyChecker must have a `modules` attribute, which is inserted by the decorator OptinalDependencyManager"
-    with pytest.raises(RuntimeError, match=error_msg):
         TestClass()

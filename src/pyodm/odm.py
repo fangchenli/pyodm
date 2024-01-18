@@ -155,9 +155,7 @@ class ModuleInfo:
             module = module_from_spec(spec)
             sys.modules[self.module_name] = module
             spec.loader.exec_module(module)
-        else:
-            module = None
-        self.module = module
+            self.module = module
 
 
 @dataclass
@@ -189,7 +187,15 @@ class OptinalDependencyManager:
                 raise TypeError(
                     f"dependencies decorator can only be applied to classes or functions, not {type(target)}"
                 )
-            return target
+            if isclass(target):
+                target_with_checker = type(
+                    target.__name__,
+                    (self.OptionalDependencyChecker, target),
+                    {},
+                )
+                return target_with_checker
+            else:
+                return target
 
         return dependencies_decorator
 
@@ -197,14 +203,6 @@ class OptinalDependencyManager:
     def OptionalDependencyChecker(self):
         class OptionalDependencyChecker:
             def __init__(self):
-                if not hasattr(self, "modules"):
-                    raise RuntimeError(
-                        "The class inheriting from OptionalDependencyChecker must have a `modules` attribute, which is inserted by the decorator OptinalDependencyManager"
-                    )
-                if len(self.modules) == 0:
-                    raise RuntimeError(
-                        "The class inheriting from OptionalDependencyChecker must have at least one dependency"
-                    )
                 missing_modules = []
                 for module_name, module in self.modules.items():
                     if module is None:
