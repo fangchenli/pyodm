@@ -45,6 +45,7 @@ def test_flatten_module_info(module_info, expected):
             "module_name": "packaging",
             "specifiers": ">=20.9, <=23.2",
             "alias": "pkg",
+            "from_meta": False,
         },
     ],
 )
@@ -60,6 +61,7 @@ def test_module_info_constructor(module_info_dict):
     [
         {
             "module_name": "packaging",
+            "from_meta": False,
         },
     ],
 )
@@ -77,6 +79,7 @@ def test_module_info_default(module_info_dict):
         (
             {
                 "module_name": "dummy",
+                "from_meta": False,
             },
             "dummy is not installed\n",
         ),
@@ -84,6 +87,7 @@ def test_module_info_default(module_info_dict):
             {
                 "module_name": "packaging",
                 "specifiers": ">=9999.9999.9999",
+                "from_meta": False,
             },
             r"packaging version .* does not meet requirement .*\n",
         ),
@@ -91,6 +95,7 @@ def test_module_info_default(module_info_dict):
             {
                 "module_name": "packaging",
                 "specifiers": "<=0.0.0",
+                "from_meta": False,
             },
             r"packaging version .* does not meet requirement .*\n",
         ),
@@ -107,6 +112,7 @@ def test_module_errors(module_info_dict, error_msg):
         {
             "packaging": {
                 "specifiers": ">=20.9, <=23.2",
+                "from_meta": False,
             }
         },
     ],
@@ -126,6 +132,7 @@ def test_dependencies_decorator_function(module_info_dict, odm):
         {
             "dummy": {
                 "specifiers": ">=20.9, <=23.2",
+                "from_meta": False,
             }
         },
     ],
@@ -146,6 +153,7 @@ def test_dependencies_decorator_function_invalid(module_info_dict, odm):
         {
             "packaging": {
                 "specifiers": ">=20.9, <=23.2",
+                "from_meta": False,
             }
         },
     ],
@@ -165,6 +173,7 @@ def test_dependencies_decorator_class(module_info_dict, odm):
         {
             "dummy": {
                 "specifiers": ">=20.9, <=23.2",
+                "from_meta": False,
             }
         },
     ],
@@ -177,3 +186,10 @@ def test_missing_dependency(module_info_dict, odm):
 
     with pytest.raises(ImportError, match=r"Missing dependencies: \['dummy'\]\n"):
         TestClass()
+
+
+def test_specifiers_from_meta(odm_with_source):
+    @odm_with_source(modules={"pandas": {"from_meta": True}})
+    class TestClass():
+        def __init__(self):
+            super().__init__()

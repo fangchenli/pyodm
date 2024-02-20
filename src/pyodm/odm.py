@@ -5,8 +5,9 @@ from dataclasses import dataclass, field
 from importlib.metadata import PackageNotFoundError, metadata, version
 from importlib.util import LazyLoader, find_spec, module_from_spec
 from inspect import isclass, isfunction
+import re
 
-from packaging.requirements import InvalidRequirement, Requirement
+from packaging.requirements import Requirement
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 
 
@@ -35,76 +36,12 @@ def _flatten_module_info(
     return module_info_list
 
 
-def _retrive_module_specifier_from_meta(
-    parent_module: str, target_module: str
-) -> SpecifierSet:
-    """
-    Retrive module specifier from parent module's metadata.
-
-    ----------
-    Parameters
-    ----------
-    parent_module : str
-        Parent module name.
-    target_module : str
-        Target module name.
-
-    -------
-    Returns
-    -------
-    SpecifierSet
-        Module specifier.
-    """
-    try:
-        meta = metadata(parent_module)
-    except PackageNotFoundError as e:
-        raise ImportError(f"{parent_module} is not installed\n") from e
-    else:
-        requirements = []
-        requirements_unfulfilled = []
-        for meta_type, module_info in meta.items():
-            if meta_type == "Requires-Dist":
-                try:
-                    requirement = Requirement(module_info)
-                except InvalidRequirement as e:
-                    raise ImportError(
-                        f"{module_info} is not a valid requirement\n"
-                    ) from e
-                else:
-                    if target_module == requirement.name:
-                        if requirement.marker is None or requirement.marker.evaluate():
-                            requirements.append(requirement)
-                        if (
-                            requirement.marker is not None
-                            and not requirement.marker.evaluate()
-                        ):
-                            requirements_unfulfilled.append(requirement)
-        if len(requirements) == 0:
-            if len(requirements_unfulfilled) > 0:
-                markers = [req.marker for req in requirements_unfulfilled]
-                raise ImportError(
-                    f"{target_module} is listed as a dependency of {parent_module} but none of the markers {markers} is fulfilled\n"
-                )
-            else:
-                raise ImportError(
-                    f"{target_module} is not listed as a dependency of {parent_module}\n"
-                )
-        else:
-            unique_requirements = set(requirements)
-            if len(unique_requirements) > 1:
-                raise ImportError(
-                    f"{target_module} is listed as a dependency of {parent_module} multiple times\n"
-                )
-            else:
-                return unique_requirements.pop().specifier
-
-
 @dataclass
 class ModuleInfo:
     module_name: str
+    from_meta: bool
     specifiers: str | None = field(default=None, hash=True)
     alias: str | None = field(default=None, hash=False)
-    source: str | None = field(default=None, hash=True)
     module: object | None = field(default=None, init=False, repr=False, hash=False)
     installed_version: str | None = field(
         default=None, init=False, repr=False, hash=False
@@ -120,13 +57,8 @@ class ModuleInfo:
         if self.alias is None:
             self.alias = self.module_name
 
-        if self.specifiers is None:
-            if self.source is None:
-                self.specifiers = ">0.0.0,<9999.9999.9999"
-            else:
-                self.specifiers = _retrive_module_specifier_from_meta(
-                    self.source, self.module_name
-                )
+        if self.specifiers is None and not self.from_meta:
+            self.specifiers = ">0.0.0,<9999.9999.9999"
 
     def _validate(self):
         module_name = (
@@ -167,13 +99,47 @@ class OptinalDependencyManager:
     usage_register: dict[str, list[str]] = field(
         default_factory=dict, init=False, hash=True
     )
+    requirements: list[Requirement] = field(init=False, hash=True, repr=False)
+    extra: str | None = field(init=False, default=None, hash=True)
+
+    def __post_init__(self):
+        if self.source is not None:
+            try:
+                if "[" in self.source:
+                    self.source, extra = self._parse_extra_from_module_name(self.source)
+                    meta = metadata(self.source)
+            except PackageNotFoundError as e:
+                raise ImportError(f"{self.source} is not installed\n") from e
+            else:
+                self.extra = extra
+                requires = meta.get_all("Requires-Dist")
+                self.requirements = [Requirement(req) for req in requires]
+                if self.extra is not None:
+                    extras = meta.get_all("Provides-Extra")
+                    if self.extra in extras:
+                        self.requirements = [
+                            req
+                            for req in self.requirements
+                            if req.marker is None
+                            or req.marker.evaluate({"extra": self.extra})
+                        ]
+                    else:
+                        raise ImportError(
+                            f"{self.source} does not provide extra {self.extra}\n"
+                        )
 
     def __call__(self, modules: dict[str, dict[str, str]]):
         def dependencies_decorator(target):
             if isclass(target) or isfunction(target):
                 modules_flattend = _flatten_module_info(modules)
-                for mod in modules_flattend:
-                    mod["source"] = self.source
+                if self.source is not None:
+                    for mod in modules_flattend:
+                        if "from_meta" not in mod:
+                            raise ValueError("from_meta key is required")
+                        if "specifiers" not in mod and mod["from_meta"]:
+                            mod["specifiers"] = self._retrive_specifier_from_meta(
+                                mod["module_name"]
+                            )
                 modules_obj = [ModuleInfo(**mod) for mod in modules_flattend]
                 target.modules = {mod.alias: mod.module for mod in modules_obj}
 
@@ -211,3 +177,51 @@ class OptinalDependencyManager:
                     raise ImportError(f"Missing dependencies: {missing_modules}\n")
 
         return OptionalDependencyChecker
+
+    def _parse_extra_from_module_name(self, module_name: str) -> tuple[str, str | None]:
+        regex = re.compile(r"(\w+)(?:\[([\w,\s]+)\])?")
+        match = regex.match(module_name)
+        if match:
+            module = match.group(1)
+            extras = match.group(2)
+            if extras is not None:
+                extras = extras.replace(" ", "").split(",")
+                if len(extras) > 1:
+                    raise ValueError(f"Only one extra is allowed, not {extras}\n")
+            return module, extras[0]  # type: ignore
+        else:
+            raise ValueError(f"{module_name} is not a valid module name\n")
+
+    def _retrive_specifier_from_meta(self, target: str) -> str:
+        fulfilled = []
+        unfulfilled = []
+        env = {"extra": self.extra} if self.extra is not None else None
+        for requirement in self.requirements:
+            if target == requirement.name:
+                if requirement.marker is None or requirement.marker.evaluate(
+                    environment=env
+                ):
+                    fulfilled.append(requirement)
+                if requirement.marker is not None and not requirement.marker.evaluate(
+                    environment=env
+                ):
+                    unfulfilled.append(requirement)
+
+        if len(fulfilled) == 0:
+            if len(unfulfilled) > 0:
+                markers = [req.marker for req in unfulfilled]
+                raise ImportError(
+                    f"{target} is listed as a dependency of {self.source} but none of the markers {markers} is fulfilled\n"
+                )
+            else:
+                raise ImportError(
+                    f"{target} is not listed as a dependency of {self.source}\n"
+                )
+        else:
+            unique = set(fulfilled)
+            if len(unique) > 1:
+                raise ImportError(
+                    f"{target} is listed as a dependency of {self.source} multiple times\n"
+                )
+            else:
+                return str(unique.pop().specifier)

@@ -36,6 +36,7 @@ dev = [
     "isort",
     "mypy",
     "pre-commit",
+    "pandas==2.1.4",
 ]
 
 [tool.setuptools_scm]
