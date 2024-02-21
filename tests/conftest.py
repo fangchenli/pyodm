@@ -10,4 +10,4 @@ def odm():
 
 @pytest.fixture
 def odm_with_source():
-    return OptinalDependencyManager(source="pyodm[dev]")
+    return OptinalDependencyManager(source="pyodm")

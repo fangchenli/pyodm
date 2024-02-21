@@ -189,7 +189,10 @@ def test_missing_dependency(module_info_dict, odm):
 
 
 def test_specifiers_from_meta(odm_with_source):
-    @odm_with_source(modules={"pandas": {"from_meta": True}})
+    @odm_with_source(modules={"pandas": {"from_meta": True, "extra": "dev"}})
     class TestClass():
         def __init__(self):
             super().__init__()
+    
+    assert hasattr(TestClass, "modules")
+    assert "pandas" in TestClass.modules
