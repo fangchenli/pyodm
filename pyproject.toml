@@ -37,7 +37,7 @@ dev = [
     "mypy",
     "pre-commit",
     "pandas==2.1.4",
-    "numpy==1.25.2",
+    "numpy==1.26.4",
 ]
 
 [tool.setuptools_scm]
