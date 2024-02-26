@@ -66,17 +66,18 @@ class ModuleInfo:
     from_meta: bool
     specifiers: str | None = field(default=None, hash=True)
     alias: str | None = field(default=None, hash=False)
+    extra: str | None = field(default=None, hash=True)
     module: object | None = field(default=None, init=False, repr=False, hash=False)
     installed_version: str | None = field(
         default=None, init=False, repr=False, hash=False
     )
     error_msg: str | None = field(default=None, init=False, repr=False, hash=False)
-    extra: str | None = field(default=None, hash=True)
 
     def __post_init__(self):
         self._handle_missing_info()
         self._validate()
-        self._import_module()
+        if self.error_msg is None:
+            self._import_module()
 
     def _handle_missing_info(self):
         if self.alias is None:
@@ -105,14 +106,13 @@ class ModuleInfo:
                     self.error_msg = f"{module_name} version {self.installed_version} does not meet requirement {specifiers}\n"
 
     def _import_module(self):
-        if self.error_msg is None:
-            spec = find_spec(self.module_name)
-            loader = LazyLoader(spec.loader)
-            spec.loader = loader
-            module = module_from_spec(spec)
-            sys.modules[self.module_name] = module
-            spec.loader.exec_module(module)
-            self.module = module
+        spec = find_spec(self.module_name)
+        loader = LazyLoader(spec.loader)
+        spec.loader = loader
+        module = module_from_spec(spec)
+        sys.modules[self.module_name] = module
+        spec.loader.exec_module(module)
+        self.module = module
 
 
 @dataclass
