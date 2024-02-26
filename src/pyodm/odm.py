@@ -106,13 +106,14 @@ class ModuleInfo:
                     self.error_msg = f"{module_name} version {self.installed_version} does not meet requirement {specifiers}\n"
 
     def _import_module(self):
-        spec = find_spec(self.module_name)
-        loader = LazyLoader(spec.loader)
-        spec.loader = loader
-        module = module_from_spec(spec)
-        sys.modules[self.module_name] = module
-        spec.loader.exec_module(module)
-        self.module = module
+        if self.module_name not in sys.modules:
+            spec = find_spec(self.module_name)
+            loader = LazyLoader(spec.loader)
+            spec.loader = loader
+            module = module_from_spec(spec)
+            sys.modules[self.module_name] = module
+            spec.loader.exec_module(module)
+            self.module = module
 
 
 @dataclass
@@ -135,14 +136,8 @@ class OptinalDependencyManager:
         def dependencies_decorator(target):
             if isclass(target) or isfunction(target):
                 modules_flattend = _flatten_module_info(modules)
-                if self.source is not None:
-                    for mod in modules_flattend:
-                        if "from_meta" not in mod:
-                            raise ValueError("from_meta key is required")
-                        if "specifiers" not in mod and mod["from_meta"]:
-                            mod["specifiers"] = self.metasource.get_specifier(
-                                mod["module_name"], mod["extra"]
-                            )
+                for mod in modules_flattend:
+                    self._validate_input(mod)
                 modules_obj = [ModuleInfo(**mod) for mod in modules_flattend]
                 target.modules = {mod.alias: mod.module for mod in modules_obj}
 
@@ -180,3 +175,26 @@ class OptinalDependencyManager:
                     raise ImportError(f"Missing dependencies: {missing_modules}\n")
 
         return OptionalDependencyChecker
+
+    def _validate_input(self, module_dict: dict[str, str]):
+        if "from_meta" not in module_dict:
+            raise KeyError("from_meta key is required")
+        if "specifiers" not in module_dict:
+            if module_dict["from_meta"]:
+                if self.source is not None and self.metasource is not None:
+                    if "extra" in module_dict:
+                        module_dict["specifiers"] = self.metasource.get_specifier(
+                            module_dict["module_name"], module_dict["extra"]
+                        )
+                    else:
+                        raise KeyError(
+                            "When 'from_meta' is True, the field 'extra' must set"
+                        )
+                else:
+                    raise ValueError(
+                        "When 'from_meta' is True, a 'source' must be provided to the OptionalDependencyManager"
+                    )
+            else:
+                raise KeyError(
+                    "When 'specifiers' are not provided, 'from_meta' must be True"
+                )

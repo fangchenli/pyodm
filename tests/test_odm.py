@@ -196,3 +196,33 @@ def test_specifiers_from_meta(odm_with_source):
     
     assert hasattr(TestClass, "modules")
     assert "pandas" in TestClass.modules
+
+
+
+def test_register(odm_with_source):
+
+    @odm_with_source(modules={"numpy": {"from_meta": True, "extra": "dev"}, "pandas": {"from_meta": True, "extra": "dev"}})
+    class TestClass1():
+        def __init__(self):
+            super().__init__()
+
+    @odm_with_source(modules={"numpy": {"from_meta": True, "extra": "dev"}})
+    class TestClass2():
+        def __init__(self):
+            super().__init__()
+
+    @odm_with_source(modules={"pandas": {"from_meta": True, "extra": "dev"}})
+    class TestClass3():
+        def __init__(self):
+            super().__init__()
+
+    @odm_with_source(modules={"numpy": {"from_meta": True, "extra": "dev"}})
+    def test_func1():
+        ...
+
+    @odm_with_source(modules={"pandas": {"from_meta": True, "extra": "dev"}})
+    def test_func2():
+        ...
+
+    print(odm_with_source.usage_register)
+    print(odm_with_source.version_register)
