@@ -106,7 +106,9 @@ class ModuleInfo:
                     self.error_msg = f"{module_name} version {self.installed_version} does not meet requirement {specifiers}\n"
 
     def _import_module(self):
-        if self.module_name not in sys.modules:
+        if self.module_name in sys.modules:
+            self.module = sys.modules[self.module_name]
+        else:
             spec = find_spec(self.module_name)
             loader = LazyLoader(spec.loader)
             spec.loader = loader
