@@ -234,5 +234,5 @@ def test_register(odm_with_source):
     assert "test_func2" in odm_with_source.usage_register["pandas"]
     assert "numpy" in odm_with_source.version_register
     assert "pandas" in odm_with_source.version_register
-    assert odm_with_source.version_register["numpy"] == "1.25.2"
+    assert odm_with_source.version_register["numpy"] == "1.25.4"
     assert odm_with_source.version_register["pandas"] == "2.1.4"
