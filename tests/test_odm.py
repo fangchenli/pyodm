@@ -202,17 +202,17 @@ def test_specifiers_from_meta(odm_with_source):
 def test_register(odm_with_source):
 
     @odm_with_source(modules={"numpy": {"from_meta": True, "extra": "dev"}, "pandas": {"from_meta": True, "extra": "dev"}})
-    class TestClass1():
+    class TestClass1:
         def __init__(self):
             super().__init__()
 
     @odm_with_source(modules={"numpy": {"from_meta": True, "extra": "dev"}})
-    class TestClass2():
+    class TestClass2:
         def __init__(self):
             super().__init__()
 
     @odm_with_source(modules={"pandas": {"from_meta": True, "extra": "dev"}})
-    class TestClass3():
+    class TestClass3:
         def __init__(self):
             super().__init__()
 
@@ -224,5 +224,15 @@ def test_register(odm_with_source):
     def test_func2():
         ...
 
-    print(odm_with_source.usage_register)
-    print(odm_with_source.version_register)
+    assert "numpy" in odm_with_source.usage_register
+    assert "pandas" in odm_with_source.usage_register
+    assert "TestClass1" in odm_with_source.usage_register["numpy"]
+    assert "TestClass1" in odm_with_source.usage_register["pandas"]
+    assert "TestClass2" in odm_with_source.usage_register["numpy"]
+    assert "TestClass3" in odm_with_source.usage_register["pandas"]
+    assert "test_func1" in odm_with_source.usage_register["numpy"]
+    assert "test_func2" in odm_with_source.usage_register["pandas"]
+    assert "numpy" in odm_with_source.version_register
+    assert "pandas" in odm_with_source.version_register
+    assert odm_with_source.version_register["numpy"] == "1.25.2"
+    assert odm_with_source.version_register["pandas"] == "2.1.4"
