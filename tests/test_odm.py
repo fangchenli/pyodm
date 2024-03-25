@@ -74,6 +74,23 @@ def test_module_info_default(module_info_dict):
 
 
 @pytest.mark.parametrize(
+    "module_info_dict",
+    [
+        {
+            "module_name": ".packaging",
+            "from_meta": False,
+        },
+    ],
+)
+def test_module_info_relative_import(module_info_dict):
+    with pytest.raises(
+        ValueError,
+        match=r"Relative imports are not supported, module_name must be an absolute import",
+    ):
+        _ = ModuleInfo(**module_info_dict)
+
+
+@pytest.mark.parametrize(
     "module_info_dict, error_msg",
     [
         (
@@ -160,7 +177,7 @@ def test_dependencies_decorator_function_invalid(module_info_dict, odm):
 )
 def test_dependencies_decorator_class(module_info_dict, odm):
     @odm(modules=module_info_dict)
-    class TestClass():
+    class TestClass:
         ...
 
     assert hasattr(TestClass, "modules")
@@ -180,7 +197,7 @@ def test_dependencies_decorator_class(module_info_dict, odm):
 )
 def test_missing_dependency(module_info_dict, odm):
     @odm(modules=module_info_dict)
-    class TestClass():
+    class TestClass:
         def __init__(self):
             super().__init__()
 
@@ -190,18 +207,21 @@ def test_missing_dependency(module_info_dict, odm):
 
 def test_specifiers_from_meta(odm_with_source):
     @odm_with_source(modules={"pandas": {"from_meta": True, "extra": "dev"}})
-    class TestClass():
+    class TestClass:
         def __init__(self):
             super().__init__()
-    
+
     assert hasattr(TestClass, "modules")
     assert "pandas" in TestClass.modules
 
 
-
 def test_register(odm_with_source):
-
-    @odm_with_source(modules={"numpy": {"from_meta": True, "extra": "dev"}, "pandas": {"from_meta": True, "extra": "dev"}})
+    @odm_with_source(
+        modules={
+            "numpy": {"from_meta": True, "extra": "dev"},
+            "pandas": {"from_meta": True, "extra": "dev"},
+        }
+    )
     class TestClass1:
         def __init__(self):
             super().__init__()

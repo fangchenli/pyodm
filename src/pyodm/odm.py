@@ -87,6 +87,11 @@ class ModuleInfo:
             self.specifiers = ">0.0.0,<9999.9999.9999"
 
     def _validate(self):
+        if self.module_name.startswith("."):
+            raise ValueError(
+                "Relative imports are not supported, module_name must be an absolute import"
+            )
+
         module_name = (
             self.module_name.split(".")[0]
             if "." in self.module_name
