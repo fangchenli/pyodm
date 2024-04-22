@@ -85,7 +85,7 @@ def test_module_info_default(module_info_dict):
 def test_module_info_relative_import(module_info_dict):
     with pytest.raises(
         ValueError,
-        match=r"Relative imports are not supported, module_name must be an absolute import",
+        match=r"Relative imports are not supported, module_name must be an absolute path",
     ):
         _ = ModuleInfo(**module_info_dict)
 

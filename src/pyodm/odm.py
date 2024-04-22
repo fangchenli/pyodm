@@ -89,7 +89,7 @@ class ModuleInfo:
     def _validate(self):
         if self.module_name.startswith("."):
             raise ValueError(
-                "Relative imports are not supported, module_name must be an absolute import"
+                "Relative imports are not supported, module_name must be an absolute path"
             )
 
         module_name = (
