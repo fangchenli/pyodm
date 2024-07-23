@@ -127,8 +127,8 @@ def test_module_errors(module_info_dict, error_msg):
     "module_info_dict",
     [
         {
-            "packaging": {
-                "specifiers": ">=20.9, <=23.2",
+            "numpy": {
+                "specifiers": ">=1.26.4, <=1.28.4",
                 "from_meta": False,
             }
         },
@@ -137,8 +137,8 @@ def test_module_errors(module_info_dict, error_msg):
 def test_dependencies_decorator_function(module_info_dict, odm):
     @odm(modules=module_info_dict)
     def test_func():
-        assert "packaging" in test_func.modules
-        assert test_func.modules["packaging"] is not None
+        assert "numpy" in test_func.modules
+        assert test_func.modules["numpy"] is not None
 
     test_func()
 
