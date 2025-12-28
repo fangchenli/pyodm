@@ -13,7 +13,7 @@ from packaging.specifiers import InvalidSpecifier, SpecifierSet
 
 
 def _flatten_module_info(
-    module_info: dict[str, dict[str, str]]
+    module_info: dict[str, dict[str, str]],
 ) -> list[dict[str, str]]:
     """
     Flatten module_info dict into a list of dicts.
@@ -92,9 +92,11 @@ class ModuleSpec:
             tuple of (module, installed_version, error_msg)
         """
         if self.module_name.startswith("."):
-            raise ValueError(
-                "Relative imports are not supported, module_name must be an absolute path"
+            msg = (
+                "Relative imports are not supported, "
+                "module_name must be an absolute path"
             )
+            raise ValueError(msg)
 
         # Use distribution_name if provided, otherwise derive from module_name
         if self.distribution_name is not None:
@@ -116,14 +118,15 @@ class ModuleSpec:
         try:
             specifier_set = SpecifierSet(self.specifiers or "")
         except InvalidSpecifier:
-            return None, installed_version, f"{self.specifiers} is not a valid specifier"
+            msg = f"{self.specifiers} is not a valid specifier"
+            return None, installed_version, msg
 
         if installed_version not in specifier_set:
-            return (
-                None,
-                installed_version,
-                f"{package_name} version {installed_version} does not meet requirement {specifier_set}\n",
+            msg = (
+                f"{package_name} version {installed_version} "
+                f"does not meet requirement {specifier_set}\n"
             )
+            return None, installed_version, msg
 
         # Import the module
         if self.module_name in sys.modules:
@@ -131,9 +134,11 @@ class ModuleSpec:
         else:
             spec = find_spec(self.module_name)
             if spec is None:
-                return None, installed_version, f"Cannot find module spec for {self.module_name}\n"
+                msg = f"Cannot find module spec for {self.module_name}\n"
+                return None, installed_version, msg
             if spec.loader is None:
-                return None, installed_version, f"Module {self.module_name} has no loader\n"
+                msg = f"Module {self.module_name} has no loader\n"
+                return None, installed_version, msg
 
             loader = LazyLoader(spec.loader)
             spec.loader = loader
@@ -169,9 +174,11 @@ class OptionalDependencyManager:
 
         def dependencies_decorator(target):
             if not (isclass(target) or isfunction(target)):
-                raise TypeError(
-                    f"dependencies decorator can only be applied to classes or functions, not {type(target)}"
+                msg = (
+                    "dependencies decorator can only be applied to "
+                    f"classes or functions, not {type(target)}"
                 )
+                raise TypeError(msg)
 
             # At decoration time: only validate input and create specs (no import)
             modules_flattend = _flatten_module_info(modules)
@@ -205,9 +212,9 @@ class OptionalDependencyManager:
             _modules_loaded = False
             _modules_cache = None
 
-            def __init__(inner_self, *args, **kwargs):
+            def __init__(inner_self, *args, **kwargs):  # noqa: N805
                 # Pass through to parent class
-                super(OptionalDependencyChecker, inner_self).__init__(*args, **kwargs)
+                super(OptionalDependencyChecker, inner_self).__init__(*args, **kwargs)  # noqa: UP008
 
             @property
             def modules(inner_self):
@@ -268,7 +275,7 @@ class OptionalDependencyManager:
             return func(*args, **kwargs)
 
         # Also expose modules on wrapper for external access if needed
-        setattr(wrapper, "modules", modules_cache)
+        wrapper.modules = modules_cache  # type: ignore[attr-defined]
         return wrapper
 
     def _validate_input(self, module_dict: dict[str, Any]) -> None:
@@ -288,9 +295,11 @@ class OptionalDependencyManager:
                             "When 'from_meta' is True, the field 'extra' must be set"
                         )
                 else:
-                    raise ValueError(
-                        "When 'from_meta' is True, a 'source' must be provided to the OptionalDependencyManager"
+                    msg = (
+                        "When 'from_meta' is True, a 'source' must be provided "
+                        "to the OptionalDependencyManager"
                     )
+                    raise ValueError(msg)
 
 
 # Backwards compatibility alias for the typo

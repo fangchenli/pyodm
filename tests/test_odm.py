@@ -90,7 +90,7 @@ def test_module_spec_relative_import(module_info_dict):
     # Relative import error is raised at load() time, not construction
     with pytest.raises(
         ValueError,
-        match=r"Relative imports are not supported, module_name must be an absolute path",
+        match=r"Relative imports are not supported",
     ):
         spec.load()
 
@@ -262,12 +262,10 @@ def test_register(odm_with_source):
             super().__init__()
 
     @odm_with_source(modules={"numpy": {"from_meta": True, "extra": "dev"}})
-    def test_func1(modules):
-        ...
+    def test_func1(modules): ...
 
     @odm_with_source(modules={"pandas": {"from_meta": True, "extra": "dev"}})
-    def test_func2(modules):
-        ...
+    def test_func2(modules): ...
 
     # Usage is registered at decoration time
     assert "numpy" in odm_with_source.usage_register
