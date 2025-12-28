@@ -84,6 +84,7 @@ class MetaSource:
 
         try:
             import json
+            from urllib.parse import unquote, urlparse
 
             dist = distribution(self.source)
 
@@ -98,19 +99,18 @@ class MetaSource:
                     # Editable install - get source directory from URL
                     url = direct_url.get("url", "")
                     if url.startswith("file://"):
-                        # Handle file:// URLs cross-platform
-                        # Unix: file:///path -> /path
-                        # Windows: file:///C:/path -> C:/path
-                        from pathlib import PurePosixPath
-
-                        posix_path = PurePosixPath(url[7:])  # Remove "file://"
-                        # On Windows, the path looks like /C:/... in the URL
-                        parts = posix_path.parts
-                        if len(parts) > 1 and len(parts[1]) == 2 and parts[1][1] == ":":
-                            # Windows drive letter detected (e.g., ('/', 'C:', ...))
-                            source_dir = Path(parts[1]) / Path(*parts[2:])
-                        else:
-                            source_dir = Path(posix_path)
+                        # Use urllib.parse for proper file:// URL handling
+                        parsed = urlparse(url)
+                        # unquote handles %20 -> space, etc.
+                        file_path = unquote(parsed.path)
+                        # On Windows, path is /C:/... - remove leading slash
+                        if (
+                            len(file_path) > 2
+                            and file_path[0] == "/"
+                            and file_path[2] == ":"
+                        ):
+                            file_path = file_path[1:]
+                        source_dir = Path(file_path)
                         pyproject_path = source_dir / "pyproject.toml"
             except FileNotFoundError:
                 pass
