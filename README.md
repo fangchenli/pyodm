@@ -3,7 +3,7 @@
 [![Tests](https://github.com/fangchenli/pyodm/actions/workflows/test.yaml/badge.svg)](https://github.com/fangchenli/pyodm/actions/workflows/test.yaml)
 [![Lint](https://github.com/fangchenli/pyodm/actions/workflows/lint.yaml/badge.svg)](https://github.com/fangchenli/pyodm/actions/workflows/lint.yaml)
 [![codecov](https://codecov.io/gh/fangchenli/pyodm/branch/main/graph/badge.svg)](https://codecov.io/gh/fangchenli/pyodm)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
 A Python library for managing optional dependencies with lazy loading and version validation.
 
