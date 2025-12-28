@@ -24,7 +24,7 @@ pip install optional-dependency-manager
 ## Quick Start
 
 ```python
-from odm import OptionalDependencyManager
+from optional_dependency_manager import OptionalDependencyManager
 
 odm = OptionalDependencyManager()
 
@@ -44,7 +44,7 @@ result = processor.process([1, 2, 3, 4, 5])
 ### Basic Usage with Classes
 
 ```python
-from odm import OptionalDependencyManager
+from optional_dependency_manager import OptionalDependencyManager
 
 odm = OptionalDependencyManager()
 
@@ -72,7 +72,9 @@ def fetch_data(url, modules):
 
 ### Reading Specifiers from Package Metadata
 
-If your package defines optional dependencies in `pyproject.toml`, you can read specifiers directly from there:
+If your package defines optional dependencies in `pyproject.toml`, you can read specifiers directly from there.
+
+#### Using optional-dependencies (extras)
 
 ```toml
 # pyproject.toml
@@ -93,6 +95,38 @@ class MLModel:
         pd = self.modules["pandas"]
         # ...
 ```
+
+#### Using dependency-groups (PEP 735)
+
+For packages using uv or other tools supporting PEP 735 dependency groups:
+
+```toml
+# pyproject.toml
+[dependency-groups]
+ml = ["numpy>=1.20.0", "pandas>=2.0.0"]
+```
+
+```python
+odm = OptionalDependencyManager(source="my-package")
+
+@odm(modules={
+    "numpy": {"from_meta": True, "group": "ml"},
+    "pandas": {"from_meta": True, "group": "ml"},
+})
+class MLModel:
+    def train(self, data):
+        np = self.modules["numpy"]
+        pd = self.modules["pandas"]
+        # ...
+```
+
+To use dependency groups, install with the `groups` extra:
+
+```bash
+pip install optional-dependency-manager[groups]
+```
+
+Note: Dependency groups are only accessible during development (editable installs) since they are not included in package metadata.
 
 ### Handling Import Errors
 
@@ -145,7 +179,8 @@ for r in reports:
 | `specifiers` | `str` | Version specifier (e.g., `">=1.0.0,<2.0.0"`) |
 | `alias` | `str` | Alternative name for accessing the module |
 | `from_meta` | `bool` | Read specifier from package metadata |
-| `extra` | `str` | Extra name when using `from_meta` |
+| `extra` | `str` | Extra name for `[project.optional-dependencies]` |
+| `group` | `str` | Group name for `[dependency-groups]` (PEP 735) |
 | `distribution_name` | `str` | PyPI package name if different from import name |
 
 ### Packages with Different Import Names
@@ -194,6 +229,7 @@ class ModuleReport:
     module_name: str
     specifier: str | None
     extra: str | None
+    group: str | None
     installed_version: str | None
     status: Literal["satisfied", "missing", "version_mismatch"]
     used_by: str
@@ -202,14 +238,14 @@ class ModuleReport:
 ## Development
 
 ```bash
-# Install dependencies
-uv sync --all-extras
+# Install dev dependencies
+uv sync --group dev
 
 # Run tests
 uv run pytest
 
 # Run tests with coverage
-uv run pytest --cov=odm
+uv run pytest --cov=optional_dependency_manager
 
 # Type checking
 uv run mypy src/

@@ -1,6 +1,6 @@
 import pytest
 
-from odm.odm import OptionalDependencyManager
+from optional_dependency_manager.odm import OptionalDependencyManager
 
 
 @pytest.fixture

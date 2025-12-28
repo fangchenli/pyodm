@@ -1,15 +1,26 @@
 from __future__ import annotations
 
 import sys
+import tomllib
 from dataclasses import dataclass, field
 from functools import wraps
-from importlib.metadata import PackageNotFoundError, metadata, version
+from importlib.metadata import PackageNotFoundError, distribution, metadata, version
 from importlib.util import LazyLoader, find_spec, module_from_spec
 from inspect import isclass, isfunction
+from pathlib import Path
 from typing import Any, Literal
 
 from packaging.requirements import Requirement
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
+
+# Optional dependency for PEP 735 dependency groups support
+try:
+    from dependency_groups import DependencyGroupResolver
+
+    HAS_DEPENDENCY_GROUPS = True
+except ImportError:
+    HAS_DEPENDENCY_GROUPS = False
+    DependencyGroupResolver = None  # type: ignore[misc, assignment]
 
 
 def _flatten_module_info(
@@ -42,6 +53,11 @@ class MetaSource:
     source: str
     requires: list[Requirement] = field(init=False, repr=True, hash=True)
     extras: list[str] = field(init=False, repr=True, hash=True)
+    # PEP 735 dependency groups (read from pyproject.toml)
+    dependency_groups: dict[str, list] | None = field(
+        init=False, repr=False, hash=False
+    )
+    _group_resolver: Any = field(init=False, repr=False, hash=False)
 
     def __post_init__(self):
         meta = metadata(self.source)
@@ -51,7 +67,55 @@ class MetaSource:
         extras = meta.get_all("Provides-Extra")
         self.extras = extras if extras else []
 
+        # Try to load dependency groups from pyproject.toml
+        self.dependency_groups = None
+        self._group_resolver = None
+        self._load_dependency_groups()
+
+    def _load_dependency_groups(self) -> None:
+        """Load dependency groups from source pyproject.toml if available."""
+        if not HAS_DEPENDENCY_GROUPS:
+            return
+
+        try:
+            import json
+
+            dist = distribution(self.source)
+
+            # Try to read direct_url.json for editable installs
+            pyproject_path = None
+            try:
+                direct_url_text = dist.read_text("direct_url.json")
+                direct_url = json.loads(direct_url_text)
+                if direct_url.get("dir_info", {}).get("editable"):
+                    # Editable install - get source directory from URL
+                    url = direct_url.get("url", "")
+                    if url.startswith("file://"):
+                        source_dir = Path(url[7:])  # Remove file:// prefix
+                        pyproject_path = source_dir / "pyproject.toml"
+            except FileNotFoundError:
+                pass
+
+            # Fallback: try locate_file (works for some install types)
+            if pyproject_path is None or not pyproject_path.exists():
+                pyproject_path = dist.locate_file("pyproject.toml")
+                if not isinstance(pyproject_path, Path):
+                    pyproject_path = Path(pyproject_path)
+
+            if pyproject_path.exists():
+                with open(pyproject_path, "rb") as f:
+                    pyproject = tomllib.load(f)
+                    if "dependency-groups" in pyproject:
+                        self.dependency_groups = pyproject["dependency-groups"]
+                        self._group_resolver = DependencyGroupResolver(
+                            self.dependency_groups
+                        )
+        except (PackageNotFoundError, FileNotFoundError, KeyError):
+            # Package not found or pyproject.toml not available
+            pass
+
     def get_specifier(self, target: str, extra: str | None = None) -> str:
+        """Get version specifier from optional-dependencies (extras)."""
         env = {"extra": extra} if extra is not None else None
         if extra is not None and extra not in self.extras:
             raise ValueError(f"{extra} is not a valid extra for {self.source}\n")
@@ -63,6 +127,45 @@ class MetaSource:
                     return str(requirement.specifier)
         raise ImportError(f"{target} is not listed as a dependency of {self.source}\n")
 
+    def get_specifier_from_group(self, target: str, group: str) -> str:
+        """Get version specifier from dependency-groups (PEP 735)."""
+        if not HAS_DEPENDENCY_GROUPS:
+            msg = (
+                "The 'dependency-groups' package is required to use the 'group' "
+                "parameter. Install it with: pip install optional-dependency-manager[groups]"
+            )
+            raise ImportError(msg)
+
+        if self.dependency_groups is None or self._group_resolver is None:
+            msg = (
+                f"No dependency groups found for {self.source}. "
+                "Dependency groups are only available when pyproject.toml is accessible "
+                "(e.g., during development with editable installs)."
+            )
+            raise ValueError(msg)
+
+        if group not in self.dependency_groups:
+            available = ", ".join(self.dependency_groups.keys())
+            raise ValueError(
+                f"'{group}' is not a valid dependency group for {self.source}. "
+                f"Available groups: {available}\n"
+            )
+
+        # Resolve the group and find the target package
+        try:
+            requirements = self._group_resolver.resolve(group)
+        except Exception as e:
+            raise ValueError(f"Failed to resolve dependency group '{group}': {e}\n")
+
+        for req in requirements:
+            # DependencyGroupResolver returns Requirement objects directly
+            if req.name == target:
+                return str(req.specifier)
+
+        raise ImportError(
+            f"{target} is not listed in dependency group '{group}' of {self.source}\n"
+        )
+
 
 @dataclass
 class ModuleSpec:
@@ -73,6 +176,8 @@ class ModuleSpec:
     specifiers: str | None = field(default=None, hash=True)
     alias: str | None = field(default=None, hash=False)
     extra: str | None = field(default=None, hash=True)
+    # PEP 735 dependency group name (alternative to extra)
+    group: str | None = field(default=None, hash=True)
     # Distribution name for packages where import name differs from package name
     # e.g., sklearn -> scikit-learn, yaml -> PyYAML
     distribution_name: str | None = field(default=None, hash=False)
@@ -190,8 +295,12 @@ def _format_dependency_error(
         A formatted error message with installation hints.
     """
     pkg_name = spec.distribution_name or spec.module_name.split(".")[0]
+
+    # Determine install hint based on extra or group
     if spec.extra and source:
         hint = f" (install: pip install {source}[{spec.extra}])"
+    elif spec.group:
+        hint = f" (install: uv sync --group {spec.group})"
     else:
         hint = ""
 
@@ -215,6 +324,7 @@ class ModuleReport:
     module_name: str
     specifier: str | None
     extra: str | None
+    group: str | None
     installed_version: str | None
     status: Literal["satisfied", "missing", "version_mismatch"]
     used_by: str
@@ -365,22 +475,41 @@ class OptionalDependencyManager:
         if "from_meta" not in module_dict:
             module_dict["from_meta"] = False
 
+        # Check for mutually exclusive extra and group
+        has_extra = "extra" in module_dict
+        has_group = "group" in module_dict
+
+        if has_extra and has_group:
+            raise ValueError(
+                "Cannot specify both 'extra' and 'group'. "
+                "Use 'extra' for optional-dependencies or 'group' for dependency-groups."
+            )
+
         if "specifiers" not in module_dict:
             if module_dict["from_meta"]:
                 if self.source is not None and self.metasource is not None:
-                    if "extra" in module_dict:
-                        # Use distribution_name for metadata lookup if provided,
-                        # otherwise derive from module_name
-                        if "distribution_name" in module_dict:
-                            target = module_dict["distribution_name"]
-                        else:
-                            target = module_dict["module_name"].split(".")[0]
+                    # Use distribution_name for metadata lookup if provided,
+                    # otherwise derive from module_name
+                    if "distribution_name" in module_dict:
+                        target = module_dict["distribution_name"]
+                    else:
+                        target = module_dict["module_name"].split(".")[0]
+
+                    if has_extra:
+                        # Read from optional-dependencies (extras)
                         module_dict["specifiers"] = self.metasource.get_specifier(
                             target, module_dict["extra"]
                         )
+                    elif has_group:
+                        # Read from dependency-groups (PEP 735)
+                        module_dict["specifiers"] = (
+                            self.metasource.get_specifier_from_group(
+                                target, module_dict["group"]
+                            )
+                        )
                     else:
                         raise KeyError(
-                            "When 'from_meta' is True, the field 'extra' must be set"
+                            "When 'from_meta' is True, either 'extra' or 'group' must be set"
                         )
                 else:
                     msg = (
@@ -424,6 +553,7 @@ class OptionalDependencyManager:
                     module_name=spec.module_name,
                     specifier=spec.specifiers,
                     extra=spec.extra,
+                    group=spec.group,
                     installed_version=installed_version,
                     status=status,
                     used_by=used_by,

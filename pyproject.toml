@@ -1,9 +1,10 @@
 [build-system]
-requires = ["setuptools>=61.0.0", "setuptools-scm>=8.0"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.9.18,<0.10.0"]
+build-backend = "uv_build"
 
 [project]
 name = "optional-dependency-manager"
+version = "0.1.0"
 authors = [
     {name = "Fangchen Li", email = "fangchen.li@outlook.com"}
 ]
@@ -28,9 +29,13 @@ requires-python = ">=3.10"
 dependencies = [
     "packaging"
 ]
-dynamic = ["version"]
 
 [project.optional-dependencies]
+groups = [
+    "dependency-groups>=1.0",
+]
+
+[dependency-groups]
 dev = [
     "pytest",
     "pytest-cov",
@@ -42,11 +47,10 @@ dev = [
     "pandas>=2.1.4",
     "numpy>=1.26.4",
 ]
-
-[tool.setuptools.package-data]
-odm = ["py.typed"]
-
-[tool.setuptools_scm]
+test = [
+    "pandas>=2.1.4",
+    "numpy>=1.26.4",
+]
 
 [tool.ruff]
 target-version = "py310"

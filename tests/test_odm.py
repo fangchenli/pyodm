@@ -2,7 +2,7 @@ import re
 
 import pytest
 
-from odm.odm import ModuleReport, ModuleSpec, _flatten_module_info
+from optional_dependency_manager.odm import ModuleReport, ModuleSpec, _flatten_module_info
 
 
 @pytest.mark.parametrize(
@@ -218,7 +218,8 @@ def test_missing_dependency(module_info_dict, odm):
 
 
 def test_specifiers_from_meta(odm_with_source):
-    @odm_with_source(modules={"pandas": {"from_meta": True, "extra": "dev"}})
+    # Now using group instead of extra since dev deps moved to [dependency-groups]
+    @odm_with_source(modules={"pandas": {"from_meta": True, "group": "dev"}})
     class TestClass:
         def __init__(self):
             super().__init__()
@@ -247,28 +248,28 @@ def test_distribution_name():
 def test_register(odm_with_source):
     @odm_with_source(
         modules={
-            "numpy": {"from_meta": True, "extra": "dev"},
-            "pandas": {"from_meta": True, "extra": "dev"},
+            "numpy": {"from_meta": True, "group": "dev"},
+            "pandas": {"from_meta": True, "group": "dev"},
         }
     )
     class TestClass1:
         def __init__(self):
             super().__init__()
 
-    @odm_with_source(modules={"numpy": {"from_meta": True, "extra": "dev"}})
+    @odm_with_source(modules={"numpy": {"from_meta": True, "group": "dev"}})
     class TestClass2:
         def __init__(self):
             super().__init__()
 
-    @odm_with_source(modules={"pandas": {"from_meta": True, "extra": "dev"}})
+    @odm_with_source(modules={"pandas": {"from_meta": True, "group": "dev"}})
     class TestClass3:
         def __init__(self):
             super().__init__()
 
-    @odm_with_source(modules={"numpy": {"from_meta": True, "extra": "dev"}})
+    @odm_with_source(modules={"numpy": {"from_meta": True, "group": "dev"}})
     def test_func1(modules): ...
 
-    @odm_with_source(modules={"pandas": {"from_meta": True, "extra": "dev"}})
+    @odm_with_source(modules={"pandas": {"from_meta": True, "group": "dev"}})
     def test_func2(modules): ...
 
     # Usage is registered at decoration time
@@ -394,15 +395,23 @@ def test_report_multiple_registrations(odm):
 def test_report_with_extra(odm_with_source):
     """Test report() includes extra field."""
 
-    @odm_with_source(modules={"pandas": {"from_meta": True, "extra": "dev"}})
+    @odm_with_source(
+        modules={
+            "dependency_groups": {
+                "from_meta": True,
+                "extra": "groups",
+                "distribution_name": "dependency-groups",
+            }
+        }
+    )
     class TestClass:
         pass
 
     reports = odm_with_source.report()
 
     assert len(reports) == 1
-    assert reports[0].module_name == "pandas"
-    assert reports[0].extra == "dev"
+    assert reports[0].module_name == "dependency_groups"
+    assert reports[0].extra == "groups"
     assert reports[0].status == "satisfied"
 
 
@@ -410,7 +419,7 @@ def test_error_message_includes_install_hint(odm_with_source):
     """Test that error messages include install hint when extra is set."""
 
     @odm_with_source(
-        modules={"nonexistent_package": {"from_meta": False, "extra": "dev"}}
+        modules={"nonexistent_package": {"from_meta": False, "extra": "groups"}}
     )
     class TestClass:
         pass
@@ -418,6 +427,98 @@ def test_error_message_includes_install_hint(odm_with_source):
     instance = TestClass()
     with pytest.raises(
         ImportError,
-        match=r"pip install optional-dependency-manager\[dev\]",
+        match=r"pip install optional-dependency-manager\[groups\]",
     ):
         _ = instance.modules
+
+
+# Tests for PEP 735 dependency-groups support
+
+
+def test_specifiers_from_group(odm_with_source):
+    """Test reading specifiers from dependency-groups (PEP 735)."""
+
+    @odm_with_source(modules={"pandas": {"from_meta": True, "group": "test"}})
+    class TestClass:
+        def __init__(self):
+            super().__init__()
+
+    # modules is an instance attribute, set at instantiation
+    instance = TestClass()
+    assert hasattr(instance, "modules")
+    assert "pandas" in instance.modules
+
+
+def test_group_and_extra_mutually_exclusive(odm_with_source):
+    """Test that extra and group cannot be used together."""
+    with pytest.raises(
+        ValueError,
+        match=r"Cannot specify both 'extra' and 'group'",
+    ):
+
+        @odm_with_source(
+            modules={"pandas": {"from_meta": True, "extra": "dev", "group": "test"}}
+        )
+        class TestClass:
+            pass
+
+
+def test_report_with_group(odm_with_source):
+    """Test report() includes group field."""
+
+    @odm_with_source(modules={"pandas": {"from_meta": True, "group": "test"}})
+    class TestClass:
+        pass
+
+    reports = odm_with_source.report()
+
+    assert len(reports) == 1
+    assert reports[0].module_name == "pandas"
+    assert reports[0].group == "test"
+    assert reports[0].extra is None
+    assert reports[0].status == "satisfied"
+
+
+def test_error_message_includes_group_hint(odm_with_source):
+    """Test that error messages include install hint when group is set."""
+
+    @odm_with_source(
+        modules={"nonexistent_package": {"from_meta": False, "group": "test"}}
+    )
+    class TestClass:
+        pass
+
+    instance = TestClass()
+    with pytest.raises(
+        ImportError,
+        match=r"uv sync --group test",
+    ):
+        _ = instance.modules
+
+
+def test_invalid_group_name(odm_with_source):
+    """Test that an invalid group name raises an error."""
+    with pytest.raises(
+        ValueError,
+        match=r"'nonexistent' is not a valid dependency group",
+    ):
+
+        @odm_with_source(
+            modules={"pandas": {"from_meta": True, "group": "nonexistent"}}
+        )
+        class TestClass:
+            pass
+
+
+def test_package_not_in_group(odm_with_source):
+    """Test that referencing a package not in the group raises an error."""
+    with pytest.raises(
+        ImportError,
+        match=r"requests is not listed in dependency group 'test'",
+    ):
+
+        @odm_with_source(
+            modules={"requests": {"from_meta": True, "group": "test"}}
+        )
+        class TestClass:
+            pass
