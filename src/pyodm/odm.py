@@ -76,6 +76,10 @@ class ModuleSpec:
     # Distribution name for packages where import name differs from package name
     # e.g., sklearn -> scikit-learn, yaml -> PyYAML
     distribution_name: str | None = field(default=None, hash=False)
+    # Cache for load() result
+    _load_cache: tuple[object | None, str | None, str | None] | None = field(
+        default=None, init=False, repr=False, hash=False, compare=False
+    )
 
     def __post_init__(self):
         if self.alias is None:
@@ -88,9 +92,14 @@ class ModuleSpec:
         """
         Validate and import the module. Called at instantiation/call time.
 
+        Results are cached after the first call.
+
         Returns:
             tuple of (module, installed_version, error_msg)
         """
+        if self._load_cache is not None:
+            return self._load_cache
+
         if self.module_name.startswith("."):
             msg = (
                 "Relative imports are not supported, "
@@ -112,21 +121,24 @@ class ModuleSpec:
         try:
             installed_version = version(package_name)
         except PackageNotFoundError:
-            return None, None, f"{package_name} is not installed\n"
+            self._load_cache = (None, None, f"{package_name} is not installed\n")
+            return self._load_cache
 
         # Validate version specifier
         try:
             specifier_set = SpecifierSet(self.specifiers or "")
         except InvalidSpecifier:
             msg = f"{self.specifiers} is not a valid specifier"
-            return None, installed_version, msg
+            self._load_cache = (None, installed_version, msg)
+            return self._load_cache
 
         if installed_version not in specifier_set:
             msg = (
                 f"{package_name} version {installed_version} "
                 f"does not meet requirement {specifier_set}\n"
             )
-            return None, installed_version, msg
+            self._load_cache = (None, installed_version, msg)
+            return self._load_cache
 
         # Import the module
         if self.module_name in sys.modules:
@@ -135,10 +147,12 @@ class ModuleSpec:
             spec = find_spec(self.module_name)
             if spec is None:
                 msg = f"Cannot find module spec for {self.module_name}\n"
-                return None, installed_version, msg
+                self._load_cache = (None, installed_version, msg)
+                return self._load_cache
             if spec.loader is None:
                 msg = f"Module {self.module_name} has no loader\n"
-                return None, installed_version, msg
+                self._load_cache = (None, installed_version, msg)
+                return self._load_cache
 
             loader = LazyLoader(spec.loader)
             spec.loader = loader
@@ -146,7 +160,8 @@ class ModuleSpec:
             sys.modules[self.module_name] = module
             spec.loader.exec_module(module)
 
-        return module, installed_version, None
+        self._load_cache = (module, installed_version, None)
+        return self._load_cache
 
 
 # Keep ModuleInfo as an alias for backwards compatibility
