@@ -153,7 +153,9 @@ class ModuleSpec:
 ModuleInfo = ModuleSpec
 
 
-def _format_dependency_error(spec: ModuleSpec, installed_version: str | None) -> str:
+def _format_dependency_error(
+    spec: ModuleSpec, installed_version: str | None, source: str | None = None
+) -> str:
     """
     Format a helpful error message for a missing or incompatible dependency.
 
@@ -163,23 +165,32 @@ def _format_dependency_error(spec: ModuleSpec, installed_version: str | None) ->
         The module specification that failed to load.
     installed_version : str | None
         The installed version, or None if not installed.
+    source : str | None
+        The package name for install hints (e.g., "strata" for
+        "pip install strata[extra]").
 
     Returns
     -------
     str
         A formatted error message with installation hints.
     """
-    # Determine package name for pip install hint
     pkg_name = spec.distribution_name or spec.module_name.split(".")[0]
+    if spec.extra and source:
+        hint = f" (install: pip install {source}[{spec.extra}])"
+    else:
+        hint = ""
 
     if installed_version is None:
         # Not installed
         if spec.specifiers and spec.specifiers != ">0.0.0,<9999.9999.9999":
-            return f"  - {pkg_name}: not installed (requires {spec.specifiers})"
-        return f"  - {pkg_name}: not installed"
+            return f"  - {pkg_name}: not installed (requires {spec.specifiers}){hint}"
+        return f"  - {pkg_name}: not installed{hint}"
 
     # Installed but version mismatch
-    return f"  - {pkg_name}: installed {installed_version}, requires {spec.specifiers}"
+    return (
+        f"  - {pkg_name}: installed {installed_version}, "
+        f"requires {spec.specifiers}{hint}"
+    )
 
 
 @dataclass
@@ -277,7 +288,9 @@ class OptionalDependencyManager:
 
                         if module is None:
                             errors.append(
-                                _format_dependency_error(spec, installed_version)
+                                _format_dependency_error(
+                                    spec, installed_version, odm.source
+                                )
                             )
 
                     if errors:
@@ -312,7 +325,11 @@ class OptionalDependencyManager:
                         odm.version_register[spec.module_name] = installed_version
 
                     if module is None:
-                        errors.append(_format_dependency_error(spec, installed_version))
+                        errors.append(
+                            _format_dependency_error(
+                                spec, installed_version, odm.source
+                            )
+                        )
 
                 if errors:
                     msg = "Missing or incompatible dependencies:\n" + "\n".join(errors)

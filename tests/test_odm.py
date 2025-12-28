@@ -404,3 +404,20 @@ def test_report_with_extra(odm_with_source):
     assert reports[0].module_name == "pandas"
     assert reports[0].extra == "dev"
     assert reports[0].status == "satisfied"
+
+
+def test_error_message_includes_install_hint(odm_with_source):
+    """Test that error messages include install hint when extra is set."""
+
+    @odm_with_source(
+        modules={"nonexistent_package": {"from_meta": False, "extra": "dev"}}
+    )
+    class TestClass:
+        pass
+
+    instance = TestClass()
+    with pytest.raises(
+        ImportError,
+        match=r"pip install pyodm\[dev\]",
+    ):
+        _ = instance.modules
