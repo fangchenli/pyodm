@@ -255,23 +255,21 @@ class OptionalDependencyManager:
         odm = self
 
         class OptionalDependencyChecker:
-            _modules_loaded = False
-            _modules_cache = None
-
             def __init__(inner_self, *args, **kwargs):  # noqa: N805
+                inner_self._odm_modules_loaded = False
+                inner_self._odm_modules_cache: dict[str, object | None] = {}
                 # Pass through to parent class
                 super(OptionalDependencyChecker, inner_self).__init__(*args, **kwargs)  # noqa: UP008
 
             @property
             def modules(inner_self):
                 """Lazy-load modules on first access."""
-                if not OptionalDependencyChecker._modules_loaded:
-                    OptionalDependencyChecker._modules_cache = {}
+                if not inner_self._odm_modules_loaded:
                     errors: list[str] = []
 
                     for spec in module_specs:
-                        module, installed_version, error_msg = spec.load()
-                        OptionalDependencyChecker._modules_cache[spec.alias] = module
+                        module, installed_version, _ = spec.load()
+                        inner_self._odm_modules_cache[spec.alias] = module
 
                         # Register version on first successful load
                         if installed_version is not None:
@@ -288,9 +286,9 @@ class OptionalDependencyManager:
                         )
                         raise ImportError(msg)
 
-                    OptionalDependencyChecker._modules_loaded = True
+                    inner_self._odm_modules_loaded = True
 
-                return OptionalDependencyChecker._modules_cache
+                return inner_self._odm_modules_cache
 
         return OptionalDependencyChecker
 
