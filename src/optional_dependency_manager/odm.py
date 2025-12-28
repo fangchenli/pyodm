@@ -9,7 +9,12 @@ from inspect import isclass, isfunction
 from pathlib import Path
 from typing import Any, Literal
 
-import tomllib
+# tomllib is available in Python 3.11+, use tomli for 3.10
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
+
 from packaging.requirements import Requirement
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 

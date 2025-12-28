@@ -546,6 +546,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "packaging" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
 ]
 
 [package.optional-dependencies]
@@ -576,6 +577,7 @@ test = [
 requires-dist = [
     { name = "dependency-groups", marker = "extra == 'groups'", specifier = ">=1.0" },
     { name = "packaging" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0" },
 ]
 provides-extras = ["groups"]
 
