@@ -98,7 +98,19 @@ class MetaSource:
                     # Editable install - get source directory from URL
                     url = direct_url.get("url", "")
                     if url.startswith("file://"):
-                        source_dir = Path(url[7:])  # Remove file:// prefix
+                        # Handle file:// URLs cross-platform
+                        # Unix: file:///path -> /path
+                        # Windows: file:///C:/path -> C:/path
+                        from pathlib import PurePosixPath
+
+                        posix_path = PurePosixPath(url[7:])  # Remove "file://"
+                        # On Windows, the path looks like /C:/... in the URL
+                        parts = posix_path.parts
+                        if len(parts) > 1 and len(parts[1]) == 2 and parts[1][1] == ":":
+                            # Windows drive letter detected (e.g., ('/', 'C:', ...))
+                            source_dir = Path(parts[1]) / Path(*parts[2:])
+                        else:
+                            source_dir = Path(posix_path)
                         pyproject_path = source_dir / "pyproject.toml"
             except FileNotFoundError:
                 pass
