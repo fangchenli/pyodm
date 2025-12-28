@@ -1,13 +1,13 @@
 import pytest
 
-from pyodm.odm import OptinalDependencyManager
+from pyodm.odm import OptionalDependencyManager
 
 
 @pytest.fixture
 def odm():
-    return OptinalDependencyManager()
+    return OptionalDependencyManager()
 
 
 @pytest.fixture
 def odm_with_source():
-    return OptinalDependencyManager(source="pyodm")
+    return OptionalDependencyManager(source="pyodm")
