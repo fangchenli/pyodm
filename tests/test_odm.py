@@ -2,7 +2,7 @@ import re
 
 import pytest
 
-from pyodm.odm import ModuleSpec, _flatten_module_info
+from pyodm.odm import ModuleReport, ModuleSpec, _flatten_module_info
 
 
 @pytest.mark.parametrize(
@@ -293,3 +293,110 @@ def test_register(odm_with_source):
     assert "pandas" in odm_with_source.version_register
     assert odm_with_source.version_register["numpy"] is not None
     assert odm_with_source.version_register["pandas"] is not None
+
+
+def test_report_satisfied(odm):
+    """Test report() with satisfied dependencies."""
+
+    @odm(modules={"packaging": {"specifiers": ">=20.0"}})
+    class TestClass1:
+        pass
+
+    @odm(modules={"packaging": {"specifiers": ">=20.0"}})
+    def test_func(modules):
+        pass
+
+    reports = odm.report()
+
+    assert len(reports) == 2
+    assert all(isinstance(r, ModuleReport) for r in reports)
+
+    # Check first report (from TestClass1)
+    assert reports[0].module_name == "packaging"
+    assert reports[0].specifier == ">=20.0"
+    assert reports[0].extra is None
+    assert reports[0].installed_version is not None
+    assert reports[0].status == "satisfied"
+    assert reports[0].used_by == "TestClass1"
+
+    # Check second report (from test_func)
+    assert reports[1].module_name == "packaging"
+    assert reports[1].used_by == "test_func"
+    assert reports[1].status == "satisfied"
+
+
+def test_report_missing(odm):
+    """Test report() with missing dependencies."""
+
+    @odm(modules={"nonexistent_package": {"specifiers": ">=1.0"}})
+    class TestClass:
+        pass
+
+    reports = odm.report()
+
+    assert len(reports) == 1
+    assert reports[0].module_name == "nonexistent_package"
+    assert reports[0].installed_version is None
+    assert reports[0].status == "missing"
+    assert reports[0].used_by == "TestClass"
+
+
+def test_report_version_mismatch(odm):
+    """Test report() with version mismatch."""
+
+    @odm(modules={"packaging": {"specifiers": ">=9999.0"}})
+    class TestClass:
+        pass
+
+    reports = odm.report()
+
+    assert len(reports) == 1
+    assert reports[0].module_name == "packaging"
+    assert reports[0].installed_version is not None
+    assert reports[0].status == "version_mismatch"
+    assert reports[0].used_by == "TestClass"
+
+
+def test_report_multiple_registrations(odm):
+    """Test report() tracks each registration separately."""
+
+    @odm(modules={"packaging": {"specifiers": ">=20.0"}})
+    class ClassA:
+        pass
+
+    @odm(modules={"packaging": {"specifiers": ">=21.0"}})
+    class ClassB:
+        pass
+
+    @odm(modules={"packaging": {"specifiers": ">=20.0"}})
+    def func_a(modules):
+        pass
+
+    reports = odm.report()
+
+    assert len(reports) == 3
+
+    # Each registration tracked separately
+    assert reports[0].used_by == "ClassA"
+    assert reports[0].specifier == ">=20.0"
+
+    assert reports[1].used_by == "ClassB"
+    assert reports[1].specifier == ">=21.0"
+
+    assert reports[2].used_by == "func_a"
+    assert reports[2].specifier == ">=20.0"
+
+
+def test_report_with_extra(odm_with_source):
+    """Test report() includes extra field."""
+
+    @odm_with_source(modules={"pandas": {"from_meta": True, "extra": "dev"}})
+    class TestClass:
+        pass
+
+    reports = odm_with_source.report()
+
+    assert len(reports) == 1
+    assert reports[0].module_name == "pandas"
+    assert reports[0].extra == "dev"
+    assert reports[0].status == "satisfied"

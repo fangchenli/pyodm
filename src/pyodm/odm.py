@@ -6,7 +6,7 @@ from functools import wraps
 from importlib.metadata import PackageNotFoundError, metadata, version
 from importlib.util import LazyLoader, find_spec, module_from_spec
 from inspect import isclass, isfunction
-from typing import Any
+from typing import Any, Literal
 
 from packaging.requirements import Requirement
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
@@ -154,6 +154,18 @@ ModuleInfo = ModuleSpec
 
 
 @dataclass
+class ModuleReport:
+    """Report for a single module registration."""
+
+    module_name: str
+    specifier: str | None
+    extra: str | None
+    installed_version: str | None
+    status: Literal["satisfied", "missing", "version_mismatch"]
+    used_by: str
+
+
+@dataclass
 class OptionalDependencyManager:
     source: str | None = field(default=None, hash=True)
     version_register: dict[str, str] = field(
@@ -161,6 +173,9 @@ class OptionalDependencyManager:
     )
     usage_register: dict[str, list[str]] = field(
         default_factory=dict, init=False, hash=True
+    )
+    spec_register: list[tuple[ModuleSpec, str]] = field(
+        default_factory=list, init=False, hash=False
     )
     requirements: list[Requirement] = field(init=False, hash=True, repr=False)
     metasource: MetaSource | None = field(init=False, repr=False, hash=False)
@@ -186,11 +201,13 @@ class OptionalDependencyManager:
                 odm._validate_input(mod)
             module_specs = [ModuleSpec(**mod) for mod in modules_flattend]
 
-            # Register usage (but not versions yet - those come at load time)
+            # Register usage and specs (but not versions yet - those come at load time)
             for spec in module_specs:
                 if spec.module_name not in odm.usage_register:
                     odm.usage_register[spec.module_name] = []
                 odm.usage_register[spec.module_name].append(target.__name__)
+                # Track each spec with its target for reporting
+                odm.spec_register.append((spec, target.__name__))
 
             if isclass(target):
                 target_with_checker = type(
@@ -300,6 +317,49 @@ class OptionalDependencyManager:
                         "to the OptionalDependencyManager"
                     )
                     raise ValueError(msg)
+
+    def report(self) -> list[ModuleReport]:
+        """
+        Generate a report of all registered optional dependencies.
+
+        This method triggers loading of all modules to determine their status.
+
+        Returns
+        -------
+        list[ModuleReport]
+            List of reports for each module registration.
+        """
+        reports: list[ModuleReport] = []
+
+        for spec, used_by in self.spec_register:
+            module, installed_version, _ = spec.load()
+
+            # Register version if available
+            if installed_version is not None:
+                self.version_register[spec.module_name] = installed_version
+
+            # Determine status
+            if module is not None:
+                status: Literal["satisfied", "missing", "version_mismatch"] = (
+                    "satisfied"
+                )
+            elif installed_version is None:
+                status = "missing"
+            else:
+                status = "version_mismatch"
+
+            reports.append(
+                ModuleReport(
+                    module_name=spec.module_name,
+                    specifier=spec.specifiers,
+                    extra=spec.extra,
+                    installed_version=installed_version,
+                    status=status,
+                    used_by=used_by,
+                )
+            )
+
+        return reports
 
 
 # Backwards compatibility alias for the typo
