@@ -153,6 +153,35 @@ class ModuleSpec:
 ModuleInfo = ModuleSpec
 
 
+def _format_dependency_error(spec: ModuleSpec, installed_version: str | None) -> str:
+    """
+    Format a helpful error message for a missing or incompatible dependency.
+
+    Parameters
+    ----------
+    spec : ModuleSpec
+        The module specification that failed to load.
+    installed_version : str | None
+        The installed version, or None if not installed.
+
+    Returns
+    -------
+    str
+        A formatted error message with installation hints.
+    """
+    # Determine package name for pip install hint
+    pkg_name = spec.distribution_name or spec.module_name.split(".")[0]
+
+    if installed_version is None:
+        # Not installed
+        if spec.specifiers and spec.specifiers != ">0.0.0,<9999.9999.9999":
+            return f"  - {pkg_name}: not installed (requires {spec.specifiers})"
+        return f"  - {pkg_name}: not installed"
+
+    # Installed but version mismatch
+    return f"  - {pkg_name}: installed {installed_version}, requires {spec.specifiers}"
+
+
 @dataclass
 class ModuleReport:
     """Report for a single module registration."""
@@ -238,10 +267,10 @@ class OptionalDependencyManager:
                 """Lazy-load modules on first access."""
                 if not OptionalDependencyChecker._modules_loaded:
                     OptionalDependencyChecker._modules_cache = {}
-                    missing_modules = []
+                    errors: list[str] = []
 
                     for spec in module_specs:
-                        module, installed_version, _ = spec.load()
+                        module, installed_version, error_msg = spec.load()
                         OptionalDependencyChecker._modules_cache[spec.alias] = module
 
                         # Register version on first successful load
@@ -249,10 +278,15 @@ class OptionalDependencyManager:
                             odm.version_register[spec.module_name] = installed_version
 
                         if module is None:
-                            missing_modules.append(spec.alias)
+                            errors.append(
+                                _format_dependency_error(spec, installed_version)
+                            )
 
-                    if len(missing_modules) > 0:
-                        raise ImportError(f"Missing dependencies: {missing_modules}\n")
+                    if errors:
+                        msg = "Missing or incompatible dependencies:\n" + "\n".join(
+                            errors
+                        )
+                        raise ImportError(msg)
 
                     OptionalDependencyChecker._modules_loaded = True
 
@@ -270,7 +304,7 @@ class OptionalDependencyManager:
             nonlocal loaded
             if not loaded:
                 # Load modules on first call
-                missing_modules = []
+                errors: list[str] = []
 
                 for spec in module_specs:
                     module, installed_version, _ = spec.load()
@@ -280,10 +314,11 @@ class OptionalDependencyManager:
                         odm.version_register[spec.module_name] = installed_version
 
                     if module is None:
-                        missing_modules.append(spec.alias)
+                        errors.append(_format_dependency_error(spec, installed_version))
 
-                if len(missing_modules) > 0:
-                    raise ImportError(f"Missing dependencies: {missing_modules}\n")
+                if errors:
+                    msg = "Missing or incompatible dependencies:\n" + "\n".join(errors)
+                    raise ImportError(msg)
 
                 loaded = True
 

@@ -165,7 +165,9 @@ def test_dependencies_decorator_function_invalid(module_info_dict, odm):
         pass
 
     # Missing dependency raises ImportError on first call
-    with pytest.raises(ImportError, match=r"Missing dependencies: \['dummy'\]\n"):
+    with pytest.raises(
+        ImportError, match=r"Missing or incompatible dependencies:\n.*dummy.*"
+    ):
         test_func()
 
 
@@ -209,7 +211,9 @@ def test_missing_dependency(module_info_dict, odm):
 
     # Instantiation succeeds - error only on accessing modules
     instance = TestClass()
-    with pytest.raises(ImportError, match=r"Missing dependencies: \['dummy'\]\n"):
+    with pytest.raises(
+        ImportError, match=r"Missing or incompatible dependencies:\n.*dummy.*"
+    ):
         _ = instance.modules
 
 
