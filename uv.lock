@@ -316,6 +316,42 @@ wheels = [
 ]
 
 [[package]]
+name = "lodestone"
+source = { editable = "." }
+dependencies = [
+    { name = "packaging" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "black" },
+    { name = "isort" },
+    { name = "mypy" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pandas" },
+    { name = "pre-commit" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "black", marker = "extra == 'dev'" },
+    { name = "isort", marker = "extra == 'dev'" },
+    { name = "mypy", marker = "extra == 'dev'" },
+    { name = "numpy", marker = "extra == 'dev'", specifier = ">=1.26.4" },
+    { name = "packaging" },
+    { name = "pandas", marker = "extra == 'dev'", specifier = ">=2.1.4" },
+    { name = "pre-commit", marker = "extra == 'dev'" },
+    { name = "pytest", marker = "extra == 'dev'" },
+    { name = "pytest-cov", marker = "extra == 'dev'" },
+    { name = "ruff", marker = "extra == 'dev'" },
+]
+provides-extras = ["dev"]
+
+[[package]]
 name = "mypy"
 version = "1.19.1"
 source = { registry = "https://pypi.org/simple" }
@@ -649,42 +685,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/b0/77/a5b8c569bf593b014
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c7/21/705964c7812476f378728bdf590ca4b771ec72385c533964653c68e86bdc/pygments-2.19.2-py3-none-any.whl", hash = "sha256:86540386c03d588bb81d44bc3928634ff26449851e99741617ecb9037ee5ec0b", size = 1225217, upload-time = "2025-06-21T13:39:07.939Z" },
 ]
-
-[[package]]
-name = "pyodm"
-source = { editable = "." }
-dependencies = [
-    { name = "packaging" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "black" },
-    { name = "isort" },
-    { name = "mypy" },
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "numpy", version = "2.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "pandas" },
-    { name = "pre-commit" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "black", marker = "extra == 'dev'" },
-    { name = "isort", marker = "extra == 'dev'" },
-    { name = "mypy", marker = "extra == 'dev'" },
-    { name = "numpy", marker = "extra == 'dev'", specifier = ">=1.26.4" },
-    { name = "packaging" },
-    { name = "pandas", marker = "extra == 'dev'", specifier = ">=2.1.4" },
-    { name = "pre-commit", marker = "extra == 'dev'" },
-    { name = "pytest", marker = "extra == 'dev'" },
-    { name = "pytest-cov", marker = "extra == 'dev'" },
-    { name = "ruff", marker = "extra == 'dev'" },
-]
-provides-extras = ["dev"]
 
 [[package]]
 name = "pytest"

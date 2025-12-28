@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PyODM (Python Optional Dependency Manager) is a library for managing optional dependencies in Python projects. It provides a decorator-based API for lazy loading modules with version constraint validation.
+Lodestone is a library for managing optional dependencies in Python projects. It provides a decorator-based API for lazy loading modules with version constraint validation.
 
 ## Development Commands
 
@@ -19,7 +19,7 @@ uv run pytest
 uv run pytest tests/test_odm.py::test_name
 
 # Run tests with coverage
-uv run pytest --cov=pyodm
+uv run pytest --cov=lodestone
 
 # Type checking
 uv run mypy src/
@@ -37,7 +37,7 @@ uv lock --upgrade
 
 ## Architecture
 
-The library is implemented in a single module (`src/pyodm/odm.py`) with three main dataclasses:
+The library is implemented in a single module (`src/lodestone/odm.py`) with three main dataclasses:
 
 1. **MetaSource** - Extracts package metadata from installed distributions using `importlib.metadata`. Retrieves dependency specifications and extras, evaluates version requirements and markers.
 
