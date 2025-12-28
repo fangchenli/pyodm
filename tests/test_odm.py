@@ -2,7 +2,7 @@ import re
 
 import pytest
 
-from lodestone.odm import ModuleReport, ModuleSpec, _flatten_module_info
+from odm.odm import ModuleReport, ModuleSpec, _flatten_module_info
 
 
 @pytest.mark.parametrize(
@@ -418,6 +418,6 @@ def test_error_message_includes_install_hint(odm_with_source):
     instance = TestClass()
     with pytest.raises(
         ImportError,
-        match=r"pip install lodestone\[dev\]",
+        match=r"pip install optional-dependency-manager\[dev\]",
     ):
         _ = instance.modules

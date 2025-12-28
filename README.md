@@ -1,8 +1,8 @@
-# lodestone
+# optional-dependency-manager
 
-[![Tests](https://github.com/fangchenli/lodestone/actions/workflows/test.yaml/badge.svg)](https://github.com/fangchenli/lodestone/actions/workflows/test.yaml)
-[![Lint](https://github.com/fangchenli/lodestone/actions/workflows/lint.yaml/badge.svg)](https://github.com/fangchenli/lodestone/actions/workflows/lint.yaml)
-[![codecov](https://codecov.io/gh/fangchenli/lodestone/branch/main/graph/badge.svg)](https://codecov.io/gh/fangchenli/lodestone)
+[![Tests](https://github.com/fangchenli/optional-dependency-manager/actions/workflows/test.yaml/badge.svg)](https://github.com/fangchenli/optional-dependency-manager/actions/workflows/test.yaml)
+[![Lint](https://github.com/fangchenli/optional-dependency-manager/actions/workflows/lint.yaml/badge.svg)](https://github.com/fangchenli/optional-dependency-manager/actions/workflows/lint.yaml)
+[![codecov](https://codecov.io/gh/fangchenli/optional-dependency-manager/branch/main/graph/badge.svg)](https://codecov.io/gh/fangchenli/optional-dependency-manager)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
 A Python library for managing optional dependencies with lazy loading and version validation.
@@ -18,13 +18,13 @@ A Python library for managing optional dependencies with lazy loading and versio
 ## Installation
 
 ```bash
-pip install lodestone
+pip install optional-dependency-manager
 ```
 
 ## Quick Start
 
 ```python
-from lodestone import OptionalDependencyManager
+from odm import OptionalDependencyManager
 
 odm = OptionalDependencyManager()
 
@@ -44,7 +44,7 @@ result = processor.process([1, 2, 3, 4, 5])
 ### Basic Usage with Classes
 
 ```python
-from lodestone import OptionalDependencyManager
+from odm import OptionalDependencyManager
 
 odm = OptionalDependencyManager()
 
@@ -209,7 +209,7 @@ uv sync --all-extras
 uv run pytest
 
 # Run tests with coverage
-uv run pytest --cov=lodestone
+uv run pytest --cov=odm
 
 # Type checking
 uv run mypy src/

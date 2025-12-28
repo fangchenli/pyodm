@@ -1,6 +1,6 @@
 import pytest
 
-from lodestone.odm import OptionalDependencyManager
+from odm.odm import OptionalDependencyManager
 
 
 @pytest.fixture
@@ -10,4 +10,4 @@ def odm():
 
 @pytest.fixture
 def odm_with_source():
-    return OptionalDependencyManager(source="lodestone")
+    return OptionalDependencyManager(source="optional-dependency-manager")
