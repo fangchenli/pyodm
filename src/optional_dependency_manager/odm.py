@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-import tomllib
 from dataclasses import dataclass, field
 from functools import wraps
 from importlib.metadata import PackageNotFoundError, distribution, metadata, version
@@ -10,6 +9,7 @@ from inspect import isclass, isfunction
 from pathlib import Path
 from typing import Any, Literal
 
+import tomllib
 from packaging.requirements import Requirement
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 
@@ -86,6 +86,8 @@ class MetaSource:
             pyproject_path = None
             try:
                 direct_url_text = dist.read_text("direct_url.json")
+                if direct_url_text is None:
+                    raise FileNotFoundError
                 direct_url = json.loads(direct_url_text)
                 if direct_url.get("dir_info", {}).get("editable"):
                     # Editable install - get source directory from URL
@@ -98,9 +100,8 @@ class MetaSource:
 
             # Fallback: try locate_file (works for some install types)
             if pyproject_path is None or not pyproject_path.exists():
-                pyproject_path = dist.locate_file("pyproject.toml")
-                if not isinstance(pyproject_path, Path):
-                    pyproject_path = Path(pyproject_path)
+                located = dist.locate_file("pyproject.toml")
+                pyproject_path = Path(str(located))
 
             if pyproject_path.exists():
                 with open(pyproject_path, "rb") as f:
@@ -132,15 +133,16 @@ class MetaSource:
         if not HAS_DEPENDENCY_GROUPS:
             msg = (
                 "The 'dependency-groups' package is required to use the 'group' "
-                "parameter. Install it with: pip install optional-dependency-manager[groups]"
+                "parameter. Install it with: "
+                "pip install optional-dependency-manager[groups]"
             )
             raise ImportError(msg)
 
         if self.dependency_groups is None or self._group_resolver is None:
             msg = (
                 f"No dependency groups found for {self.source}. "
-                "Dependency groups are only available when pyproject.toml is accessible "
-                "(e.g., during development with editable installs)."
+                "Dependency groups are only available when pyproject.toml is "
+                "accessible (e.g., during development with editable installs)."
             )
             raise ValueError(msg)
 
@@ -155,7 +157,9 @@ class MetaSource:
         try:
             requirements = self._group_resolver.resolve(group)
         except Exception as e:
-            raise ValueError(f"Failed to resolve dependency group '{group}': {e}\n")
+            raise ValueError(
+                f"Failed to resolve dependency group '{group}': {e}\n"
+            ) from e
 
         for req in requirements:
             # DependencyGroupResolver returns Requirement objects directly
@@ -482,7 +486,8 @@ class OptionalDependencyManager:
         if has_extra and has_group:
             raise ValueError(
                 "Cannot specify both 'extra' and 'group'. "
-                "Use 'extra' for optional-dependencies or 'group' for dependency-groups."
+                "Use 'extra' for optional-dependencies or "
+                "'group' for dependency-groups."
             )
 
         if "specifiers" not in module_dict:
@@ -509,7 +514,8 @@ class OptionalDependencyManager:
                         )
                     else:
                         raise KeyError(
-                            "When 'from_meta' is True, either 'extra' or 'group' must be set"
+                            "When 'from_meta' is True, "
+                            "either 'extra' or 'group' must be set"
                         )
                 else:
                     msg = (

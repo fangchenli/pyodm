@@ -2,7 +2,11 @@ import re
 
 import pytest
 
-from optional_dependency_manager.odm import ModuleReport, ModuleSpec, _flatten_module_info
+from optional_dependency_manager.odm import (
+    ModuleReport,
+    ModuleSpec,
+    _flatten_module_info,
+)
 
 
 @pytest.mark.parametrize(
@@ -517,8 +521,6 @@ def test_package_not_in_group(odm_with_source):
         match=r"requests is not listed in dependency group 'test'",
     ):
 
-        @odm_with_source(
-            modules={"requests": {"from_meta": True, "group": "test"}}
-        )
+        @odm_with_source(modules={"requests": {"from_meta": True, "group": "test"}})
         class TestClass:
             pass
