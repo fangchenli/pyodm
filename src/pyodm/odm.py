@@ -369,8 +369,14 @@ class OptionalDependencyManager:
             if module_dict["from_meta"]:
                 if self.source is not None and self.metasource is not None:
                     if "extra" in module_dict:
+                        # Use distribution_name for metadata lookup if provided,
+                        # otherwise derive from module_name
+                        if "distribution_name" in module_dict:
+                            target = module_dict["distribution_name"]
+                        else:
+                            target = module_dict["module_name"].split(".")[0]
                         module_dict["specifiers"] = self.metasource.get_specifier(
-                            module_dict["module_name"], module_dict["extra"]
+                            target, module_dict["extra"]
                         )
                     else:
                         raise KeyError(
