@@ -12,19 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `@` syntax for auto-resolving extras and dependency groups
 - `as` syntax for module aliasing
 - `->` syntax for specifying distribution names
-- `py.typed` marker for PEP 561 typing support
 - `resolve_extra_or_group()` method on `MetaSource` for auto-resolution
-- Pre-commit workflow for CI
 
 ### Changed
 - **BREAKING**: Removed dict-based `modules={}` syntax from decorator
 - **BREAKING**: Removed `_flatten_module_info` function
 - **BREAKING**: Removed `ModuleInfo` alias (use `ModuleSpec`)
 - **BREAKING**: Removed `OptinalDependencyManager` typo alias
-
-### Fixed
-- Windows file:// URL parsing for editable installs
-- Python 3.10 compatibility with `tomli` fallback
 
 ## [0.1.0] - 2024-12-28
 
@@ -38,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ModuleSpec` for managing module specifications
 - `ModuleReport` for dependency status reporting
 - `report()` method for generating dependency reports
+- `py.typed` marker for PEP 561 typing support
+- Pre-commit configuration with ruff and mypy
 
 [Unreleased]: https://github.com/forge-labs-dev/optional-dependency-manager/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/forge-labs-dev/optional-dependency-manager/releases/tag/v0.1.0
