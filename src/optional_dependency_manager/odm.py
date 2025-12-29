@@ -253,9 +253,7 @@ class MetaSource:
             If the name is ambiguous (exists in both) or not found in either.
         """
         in_extra = name in self.extras
-        in_group = (
-            self.dependency_groups is not None and name in self.dependency_groups
-        )
+        in_group = self.dependency_groups is not None and name in self.dependency_groups
 
         if in_extra and in_group:
             raise ValueError(
@@ -674,5 +672,3 @@ class OptionalDependencyManager:
             )
 
         return reports
-
-
