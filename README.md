@@ -4,6 +4,7 @@
 [![pre-commit](https://github.com/forge-labs-dev/optional-dependency-manager/actions/workflows/pre-commit.yaml/badge.svg)](https://github.com/forge-labs-dev/optional-dependency-manager/actions/workflows/pre-commit.yaml)
 [![codecov](https://codecov.io/gh/forge-labs-dev/optional-dependency-manager/branch/main/graph/badge.svg)](https://codecov.io/gh/forge-labs-dev/optional-dependency-manager)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![PyPI](https://img.shields.io/pypi/v/optional-dependency-manager)](https://pypi.org/project/optional-dependency-manager/)
 
 A Python library for managing optional dependencies with lazy loading and version validation.
 
