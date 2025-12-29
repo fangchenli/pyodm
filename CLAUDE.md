@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-optional-dependency-manager is a library for managing optional dependencies in Python projects. It provides a decorator-based API for lazy loading modules with version constraint validation.
+optional-dependency-manager is a library for managing optional dependencies in Python projects. It provides a string-based decorator API for lazy loading modules with version constraint validation.
 
 ## Development Commands
 
@@ -38,7 +38,7 @@ uv lock --upgrade
 
 The library is implemented in a single module (`src/optional_dependency_manager/odm.py`) with three main dataclasses:
 
-1. **MetaSource** - Extracts package metadata from installed distributions using `importlib.metadata`. Retrieves dependency specifications and extras. Also supports PEP 735 dependency groups from `pyproject.toml`.
+1. **MetaSource** - Extracts package metadata from installed distributions using `importlib.metadata`. Retrieves dependency specifications from extras and PEP 735 dependency groups from `pyproject.toml`.
 
 2. **ModuleSpec** - Manages individual module information. Validates module installations and version constraints against specifiers. Handles lazy loading via `importlib.util.LazyLoader`. Supports module aliasing.
 
@@ -51,19 +51,20 @@ from optional_dependency_manager import OptionalDependencyManager
 
 odm = OptionalDependencyManager(source="my-package")
 
-# Using optional-dependencies (extras)
-@odm(modules={"numpy": {"from_meta": True, "extra": "ml"}})
+# String-based syntax
+@odm("numpy@ml")                    # from extra or group "ml"
+@odm("numpy>=1.20")                 # version specifier
+@odm("numpy@ml as np")              # with alias
+@odm("sklearn@ml->scikit-learn")    # distribution name differs
+@odm("numpy", "pandas@ml")          # multiple modules
+
+# Example class
+@odm("numpy@ml", "pandas@ml")
 class MyClass:
     def compute(self):
         np = self.modules["numpy"]
-        # use numpy...
-
-# Using dependency-groups (PEP 735)
-@odm(modules={"numpy": {"from_meta": True, "group": "ml"}})
-class MyClass2:
-    def compute(self):
-        np = self.modules["numpy"]
-        # use numpy...
+        pd = self.modules["pandas"]
+        # use numpy and pandas...
 ```
 
 ## Commit Message Convention

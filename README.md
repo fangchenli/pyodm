@@ -1,8 +1,8 @@
 # optional-dependency-manager
 
-[![Tests](https://github.com/fangchenli/optional-dependency-manager/actions/workflows/test.yaml/badge.svg)](https://github.com/fangchenli/optional-dependency-manager/actions/workflows/test.yaml)
-[![Lint](https://github.com/fangchenli/optional-dependency-manager/actions/workflows/lint.yaml/badge.svg)](https://github.com/fangchenli/optional-dependency-manager/actions/workflows/lint.yaml)
-[![codecov](https://codecov.io/gh/fangchenli/optional-dependency-manager/branch/main/graph/badge.svg)](https://codecov.io/gh/fangchenli/optional-dependency-manager)
+[![Tests](https://github.com/forge-labs-dev/optional-dependency-manager/actions/workflows/test.yaml/badge.svg)](https://github.com/forge-labs-dev/optional-dependency-manager/actions/workflows/test.yaml)
+[![Lint](https://github.com/forge-labs-dev/optional-dependency-manager/actions/workflows/lint.yaml/badge.svg)](https://github.com/forge-labs-dev/optional-dependency-manager/actions/workflows/lint.yaml)
+[![codecov](https://codecov.io/gh/forge-labs-dev/optional-dependency-manager/branch/main/graph/badge.svg)](https://codecov.io/gh/forge-labs-dev/optional-dependency-manager)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
 A Python library for managing optional dependencies with lazy loading and version validation.
@@ -11,8 +11,8 @@ A Python library for managing optional dependencies with lazy loading and versio
 
 - **Lazy Loading**: Dependencies are only imported when first accessed, reducing startup time
 - **Version Validation**: Automatically validates installed versions against specifiers
-- **Decorator API**: Simple decorator-based interface for classes and functions
-- **Metadata Integration**: Can read version specifiers from your package's `pyproject.toml`
+- **Decorator API**: Simple string-based decorator interface for classes and functions
+- **Metadata Integration**: Can read version specifiers from your package's `pyproject.toml` extras or dependency groups
 - **Dependency Reporting**: Generate reports of all optional dependencies and their status
 
 ## Installation
@@ -28,7 +28,7 @@ from optional_dependency_manager import OptionalDependencyManager
 
 odm = OptionalDependencyManager()
 
-@odm(modules={"numpy": {"specifiers": ">=1.20.0"}})
+@odm("numpy>=1.20.0")
 class DataProcessor:
     def process(self, data):
         np = self.modules["numpy"]
@@ -41,6 +41,19 @@ result = processor.process([1, 2, 3, 4, 5])
 
 ## Usage
 
+### String Syntax
+
+The decorator accepts module specifications as strings with a concise syntax:
+
+```python
+@odm("numpy")                    # any version
+@odm("numpy>=1.20.0")            # version specifier
+@odm("numpy@ml")                 # from extra or dependency group "ml"
+@odm("numpy>=1.20 as np")        # with alias
+@odm("sklearn->scikit-learn")    # distribution name differs from import
+@odm("numpy", "pandas>=2.0")     # multiple modules
+```
+
 ### Basic Usage with Classes
 
 ```python
@@ -48,10 +61,7 @@ from optional_dependency_manager import OptionalDependencyManager
 
 odm = OptionalDependencyManager()
 
-@odm(modules={
-    "pandas": {"specifiers": ">=2.0.0"},
-    "numpy": {"specifiers": ">=1.20.0", "alias": "np"},
-})
+@odm("pandas>=2.0.0", "numpy>=1.20.0 as np")
 class DataAnalyzer:
     def analyze(self, data):
         pd = self.modules["pandas"]
@@ -63,7 +73,7 @@ class DataAnalyzer:
 ### Basic Usage with Functions
 
 ```python
-@odm(modules={"requests": {"specifiers": ">=2.25.0"}})
+@odm("requests>=2.25.0")
 def fetch_data(url, modules):
     # modules is injected as a keyword argument
     response = modules["requests"].get(url)
@@ -72,7 +82,7 @@ def fetch_data(url, modules):
 
 ### Reading Specifiers from Package Metadata
 
-If your package defines optional dependencies in `pyproject.toml`, you can read specifiers directly from there.
+If your package defines optional dependencies in `pyproject.toml`, you can read specifiers directly using the `@` syntax.
 
 #### Using optional-dependencies (extras)
 
@@ -85,10 +95,7 @@ ml = ["numpy>=1.20.0", "pandas>=2.0.0"]
 ```python
 odm = OptionalDependencyManager(source="my-package")
 
-@odm(modules={
-    "numpy": {"from_meta": True, "extra": "ml"},
-    "pandas": {"from_meta": True, "extra": "ml"},
-})
+@odm("numpy@ml", "pandas@ml")
 class MLModel:
     def train(self, data):
         np = self.modules["numpy"]
@@ -109,16 +116,16 @@ ml = ["numpy>=1.20.0", "pandas>=2.0.0"]
 ```python
 odm = OptionalDependencyManager(source="my-package")
 
-@odm(modules={
-    "numpy": {"from_meta": True, "group": "ml"},
-    "pandas": {"from_meta": True, "group": "ml"},
-})
+# Same syntax - automatically resolves to group if not found in extras
+@odm("numpy@ml", "pandas@ml")
 class MLModel:
     def train(self, data):
         np = self.modules["numpy"]
         pd = self.modules["pandas"]
         # ...
 ```
+
+The `@` syntax automatically checks both extras and dependency groups. If a name exists in both, an error is raised asking you to disambiguate.
 
 To use dependency groups, install with the `groups` extra:
 
@@ -133,7 +140,7 @@ Note: Dependency groups are only accessible during development (editable install
 When a dependency is missing or has an incompatible version, an `ImportError` is raised with helpful information:
 
 ```python
-@odm(modules={"nonexistent": {"specifiers": ">=1.0.0"}})
+@odm("nonexistent>=1.0.0")
 class MyClass:
     pass
 
@@ -153,11 +160,11 @@ You can generate a report of all registered optional dependencies:
 ```python
 odm = OptionalDependencyManager()
 
-@odm(modules={"numpy": {"specifiers": ">=1.20.0"}})
+@odm("numpy>=1.20.0")
 class ClassA:
     pass
 
-@odm(modules={"pandas": {"specifiers": ">=2.0.0"}})
+@odm("pandas>=2.0.0")
 class ClassB:
     pass
 
@@ -172,33 +179,29 @@ for r in reports:
         print(f"  Required: {r.specifier}")
 ```
 
-### Module Specification Options
-
-| Option | Type | Description |
-|--------|------|-------------|
-| `specifiers` | `str` | Version specifier (e.g., `">=1.0.0,<2.0.0"`) |
-| `alias` | `str` | Alternative name for accessing the module |
-| `from_meta` | `bool` | Read specifier from package metadata |
-| `extra` | `str` | Extra name for `[project.optional-dependencies]` |
-| `group` | `str` | Group name for `[dependency-groups]` (PEP 735) |
-| `distribution_name` | `str` | PyPI package name if different from import name |
-
 ### Packages with Different Import Names
 
-Some packages have different PyPI names and import names (e.g., `scikit-learn` vs `sklearn`):
+Some packages have different PyPI names and import names (e.g., `scikit-learn` vs `sklearn`). Use the `->` syntax:
 
 ```python
-@odm(modules={
-    "sklearn": {
-        "specifiers": ">=1.0.0",
-        "distribution_name": "scikit-learn",
-    }
-})
+@odm("sklearn>=1.0.0->scikit-learn")
 class Classifier:
     def fit(self, X, y):
         sklearn = self.modules["sklearn"]
         return sklearn.linear_model.LogisticRegression().fit(X, y)
 ```
+
+### Full Syntax Reference
+
+| Syntax | Description |
+|--------|-------------|
+| `"numpy"` | Any version of numpy |
+| `"numpy>=1.20"` | numpy with version constraint |
+| `"numpy@ml"` | numpy from extra or group "ml" (auto-resolved) |
+| `"numpy as np"` | numpy with alias "np" |
+| `"numpy->numpy-pkg"` | import as numpy, but package name is numpy-pkg |
+| `"numpy@ml as np"` | from extra/group with alias |
+| `"sklearn@ml->scikit-learn as sk"` | full syntax with all options |
 
 ## API Reference
 
@@ -214,7 +217,7 @@ class OptionalDependencyManager:
             source: Package name for reading metadata (optional)
         """
 
-    def __call__(self, modules: dict[str, dict[str, str]]):
+    def __call__(self, *args: str):
         """Decorator for classes or functions."""
 
     def report(self) -> list[ModuleReport]:

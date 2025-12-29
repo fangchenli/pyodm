@@ -18,6 +18,9 @@ else:
 from packaging.requirements import Requirement
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 
+# Version specifier operators for parsing
+_VERSION_OPERATORS = (">=", "<=", "==", "!=", "~=", ">", "<")
+
 # Optional dependency for PEP 735 dependency groups support
 try:
     from dependency_groups import DependencyGroupResolver
@@ -28,29 +31,64 @@ except ImportError:
     DependencyGroupResolver = None  # type: ignore[misc, assignment]
 
 
-def _flatten_module_info(
-    module_info: dict[str, dict[str, str]],
-) -> list[dict[str, str]]:
+def _parse_module_spec(spec_str: str) -> dict[str, Any]:
     """
-    Flatten module_info dict into a list of dicts.
+    Parse a string-based module specification into a dict.
 
-    ----------
+    Syntax:
+        "numpy"                    # any version
+        "numpy>=1.20"              # direct version specifier
+        "numpy@ml"                 # from extra or group "ml" (auto-resolved)
+        "numpy@ml as np"           # with alias
+        "numpy@ml->scikit-learn"   # distribution name differs from import
+
     Parameters
     ----------
-    module_info : dict[str, dict[str, str]]
-        Dict of module info.
+    spec_str : str
+        The module specification string.
 
-    -------
     Returns
     -------
-    list[dict[str, str]]
-        List of module info dicts.
+    dict[str, Any]
+        Dict with keys: module_name, and optionally: specifiers, alias,
+        extra_or_group, distribution_name, from_meta.
     """
-    module_info_list = []
-    for module_name, info in module_info.items():
-        info["module_name"] = module_name
-        module_info_list.append(info)
-    return module_info_list
+    result: dict[str, Any] = {}
+    remaining = spec_str.strip()
+
+    # 1. Parse alias: " as <alias>"
+    if " as " in remaining:
+        remaining, alias = remaining.rsplit(" as ", 1)
+        result["alias"] = alias.strip()
+        remaining = remaining.strip()
+
+    # 2. Parse distribution name: "-><dist_name>"
+    if "->" in remaining:
+        remaining, dist_name = remaining.rsplit("->", 1)
+        result["distribution_name"] = dist_name.strip()
+        remaining = remaining.strip()
+
+    # 3. Parse extra/group: "@<name>"
+    if "@" in remaining:
+        remaining, extra_or_group = remaining.rsplit("@", 1)
+        result["extra_or_group"] = extra_or_group.strip()
+        result["from_meta"] = True
+        remaining = remaining.strip()
+
+    # 4. Parse version specifier or module name
+    # Check if remaining contains a version operator
+    for op in _VERSION_OPERATORS:
+        if op in remaining:
+            # Find the position of the operator
+            idx = remaining.index(op)
+            result["module_name"] = remaining[:idx].strip()
+            result["specifiers"] = remaining[idx:].strip()
+            return result
+
+    # No version operator found - just a module name
+    result["module_name"] = remaining
+
+    return result
 
 
 @dataclass
@@ -187,6 +225,66 @@ class MetaSource:
             f"{target} is not listed in dependency group '{group}' of {self.source}\n"
         )
 
+    def resolve_extra_or_group(
+        self, target: str, name: str
+    ) -> tuple[str, Literal["extra", "group"]]:
+        """
+        Resolve a name that could be either an extra or a dependency group.
+
+        Checks both extras and dependency-groups, returning the specifier and
+        which one matched. Raises an error if the name exists in both (ambiguous)
+        or neither.
+
+        Parameters
+        ----------
+        target : str
+            The package name to look up.
+        name : str
+            The extra or group name to resolve.
+
+        Returns
+        -------
+        tuple[str, Literal["extra", "group"]]
+            The version specifier and whether it came from "extra" or "group".
+
+        Raises
+        ------
+        ValueError
+            If the name is ambiguous (exists in both) or not found in either.
+        """
+        in_extra = name in self.extras
+        in_group = (
+            self.dependency_groups is not None and name in self.dependency_groups
+        )
+
+        if in_extra and in_group:
+            raise ValueError(
+                f"'{name}' exists in both optional-dependencies (extras) and "
+                f"dependency-groups. Please use the explicit dict syntax with "
+                f"'extra' or 'group' key to disambiguate."
+            )
+
+        if in_extra:
+            specifier = self.get_specifier(target, name)
+            return specifier, "extra"
+
+        if in_group:
+            specifier = self.get_specifier_from_group(target, name)
+            return specifier, "group"
+
+        # Not found in either - build helpful error message
+        available_extras = ", ".join(self.extras) if self.extras else "none"
+        available_groups = (
+            ", ".join(self.dependency_groups.keys())
+            if self.dependency_groups
+            else "none"
+        )
+        raise ValueError(
+            f"'{name}' is not a valid extra or dependency group for {self.source}. "
+            f"Available extras: {available_extras}. "
+            f"Available groups: {available_groups}."
+        )
+
 
 @dataclass
 class ModuleSpec:
@@ -290,10 +388,6 @@ class ModuleSpec:
         return self._load_cache
 
 
-# Keep ModuleInfo as an alias for backwards compatibility
-ModuleInfo = ModuleSpec
-
-
 def _format_dependency_error(
     spec: ModuleSpec, installed_version: str | None, source: str | None = None
 ) -> str:
@@ -370,8 +464,28 @@ class OptionalDependencyManager:
         if self.source is not None:
             self.metasource = MetaSource(self.source)
 
-    def __call__(self, modules: dict[str, dict[str, str]]):
+    def __call__(self, *args: str):
+        """
+        Decorator for declaring optional dependencies.
+
+        Syntax:
+            @odm("numpy")                 # any version
+            @odm("numpy>=1.20")           # version specifier
+            @odm("numpy@ml")              # from extra or group "ml" (auto-resolved)
+            @odm("numpy@ml as np")        # with alias
+            @odm("sklearn@ml->scikit-learn")  # distribution name differs
+            @odm("numpy", "pandas@ml")    # multiple modules
+
+        Parameters
+        ----------
+        *args : str
+            Module specifications as strings.
+        """
+        if not args:
+            raise ValueError("At least one module specification is required.")
+
         odm = self  # capture reference for use in checker
+        module_dicts = [_parse_module_spec(arg) for arg in args]
 
         def dependencies_decorator(target):
             if not (isclass(target) or isfunction(target)):
@@ -382,10 +496,9 @@ class OptionalDependencyManager:
                 raise TypeError(msg)
 
             # At decoration time: only validate input and create specs (no import)
-            modules_flattend = _flatten_module_info(modules)
-            for mod in modules_flattend:
+            for mod in module_dicts:
                 odm._validate_input(mod)
-            module_specs = [ModuleSpec(**mod) for mod in modules_flattend]
+            module_specs = [ModuleSpec(**mod) for mod in module_dicts]
 
             # Register usage and specs (but not versions yet - those come at load time)
             for spec in module_specs:
@@ -496,50 +609,27 @@ class OptionalDependencyManager:
         if "from_meta" not in module_dict:
             module_dict["from_meta"] = False
 
-        # Check for mutually exclusive extra and group
-        has_extra = "extra" in module_dict
-        has_group = "group" in module_dict
+        # Handle extra_or_group from string parsing - resolve to extra or group
+        if "extra_or_group" in module_dict:
+            if self.source is None or self.metasource is None:
+                msg = (
+                    "When using '@' syntax, a 'source' must be provided "
+                    "to the OptionalDependencyManager"
+                )
+                raise ValueError(msg)
 
-        if has_extra and has_group:
-            raise ValueError(
-                "Cannot specify both 'extra' and 'group'. "
-                "Use 'extra' for optional-dependencies or "
-                "'group' for dependency-groups."
+            # Use distribution_name for metadata lookup if provided
+            if "distribution_name" in module_dict:
+                target = module_dict["distribution_name"]
+            else:
+                target = module_dict["module_name"].split(".")[0]
+
+            name = module_dict.pop("extra_or_group")
+            specifier, resolved_type = self.metasource.resolve_extra_or_group(
+                target, name
             )
-
-        if "specifiers" not in module_dict:
-            if module_dict["from_meta"]:
-                if self.source is not None and self.metasource is not None:
-                    # Use distribution_name for metadata lookup if provided,
-                    # otherwise derive from module_name
-                    if "distribution_name" in module_dict:
-                        target = module_dict["distribution_name"]
-                    else:
-                        target = module_dict["module_name"].split(".")[0]
-
-                    if has_extra:
-                        # Read from optional-dependencies (extras)
-                        module_dict["specifiers"] = self.metasource.get_specifier(
-                            target, module_dict["extra"]
-                        )
-                    elif has_group:
-                        # Read from dependency-groups (PEP 735)
-                        module_dict["specifiers"] = (
-                            self.metasource.get_specifier_from_group(
-                                target, module_dict["group"]
-                            )
-                        )
-                    else:
-                        raise KeyError(
-                            "When 'from_meta' is True, "
-                            "either 'extra' or 'group' must be set"
-                        )
-                else:
-                    msg = (
-                        "When 'from_meta' is True, a 'source' must be provided "
-                        "to the OptionalDependencyManager"
-                    )
-                    raise ValueError(msg)
+            module_dict["specifiers"] = specifier
+            module_dict[resolved_type] = name
 
     def report(self) -> list[ModuleReport]:
         """
@@ -586,5 +676,3 @@ class OptionalDependencyManager:
         return reports
 
 
-# Backwards compatibility alias for the typo
-OptinalDependencyManager = OptionalDependencyManager
