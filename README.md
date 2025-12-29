@@ -1,7 +1,7 @@
 # optional-dependency-manager
 
 [![Tests](https://github.com/forge-labs-dev/optional-dependency-manager/actions/workflows/test.yaml/badge.svg)](https://github.com/forge-labs-dev/optional-dependency-manager/actions/workflows/test.yaml)
-[![Lint](https://github.com/forge-labs-dev/optional-dependency-manager/actions/workflows/lint.yaml/badge.svg)](https://github.com/forge-labs-dev/optional-dependency-manager/actions/workflows/lint.yaml)
+[![pre-commit](https://github.com/forge-labs-dev/optional-dependency-manager/actions/workflows/pre-commit.yaml/badge.svg)](https://github.com/forge-labs-dev/optional-dependency-manager/actions/workflows/pre-commit.yaml)
 [![codecov](https://codecov.io/gh/forge-labs-dev/optional-dependency-manager/branch/main/graph/badge.svg)](https://codecov.io/gh/forge-labs-dev/optional-dependency-manager)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
