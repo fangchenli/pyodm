@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2024-12-29
+
 ### Added
 - New string-based decorator API for declaring dependencies
 - `@` syntax for auto-resolving extras and dependency groups
@@ -35,5 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `py.typed` marker for PEP 561 typing support
 - Pre-commit configuration with ruff and mypy
 
-[Unreleased]: https://github.com/forge-labs-dev/optional-dependency-manager/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/forge-labs-dev/optional-dependency-manager/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/forge-labs-dev/optional-dependency-manager/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/forge-labs-dev/optional-dependency-manager/releases/tag/v0.1.0
